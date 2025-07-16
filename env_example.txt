@@ -1,0 +1,64 @@
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-3.5-turbo
+OPENAI_MAX_TOKENS=4000
+OPENAI_TEMPERATURE=0.7
+
+# Database Configuration
+DATABASE_URL=sqlite:///bot_builder.db
+# For PostgreSQL: postgresql://user:password@localhost/bot_builder
+# For MySQL: mysql://user:password@localhost/bot_builder
+
+# Redis Configuration
+REDIS_URL=redis://localhost:6379
+REDIS_DB=0
+
+# AWS Configuration (for cloud deployment)
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=bot-builder-data
+
+# Security Configuration
+SECRET_KEY=your_secret_key_here_change_this_in_production
+ENCRYPTION_KEY=your_encryption_key_here_change_this_in_production
+JWT_SECRET_KEY=your_jwt_secret_key_here_change_this_in_production
+
+# Logging Configuration
+LOG_LEVEL=INFO
+LOG_FILE=logs/bot_builder.log
+
+# AI Employee Configuration
+MAX_AI_EMPLOYEES=50
+TRAINING_TIMEOUT_HOURS=24
+OPTIMIZATION_INTERVAL_HOURS=6
+
+# Financial Data Sources
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
+QUANDL_API_KEY=your_quandl_key
+YAHOO_FINANCE_ENABLED=true
+
+# Monitoring Configuration
+PROMETHEUS_ENABLED=true
+PROMETHEUS_PORT=9090
+MLFLOW_TRACKING_URI=http://localhost:5000
+
+# Compliance Configuration
+COMPLIANCE_MODE=strict
+AUDIT_TRAIL_ENABLED=true
+REGULATORY_FRAMEWORK=SEC
+
+# Performance Configuration
+MAX_CONCURRENT_TRAININGS=5
+MAX_CONCURRENT_TRADES=10
+RISK_LIMIT_PERCENTAGE=2.0
+
+# UI Configuration
+STREAMLIT_PORT=8501
+GRADIO_PORT=7860
+ENABLE_WEBSOCKETS=true
+
+# Development Configuration
+DEBUG_MODE=false
+ENABLE_HOT_RELOAD=true
+TEST_MODE=false 

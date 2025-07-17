@@ -17,6 +17,7 @@ from config.settings import settings
 from core.employee_factory import AIEmployeeFactory
 from core.learning_engine import LearningEngine
 from core.advanced_rl_engine import AdvancedRLEngine, RLState, RLAction, RLReward
+from core.explainability_engine import AdvancedExplainabilityEngine, ExplanationResult, DecisionContext
 from data.data_manager import DataManager
 from data.real_time_market_data import RealTimeMarketDataProvider, MarketDataPoint, MarketEvent
 from monitoring.metrics import MetricsCollector
@@ -46,6 +47,7 @@ class AIEngine:
     - Performance monitoring and reporting
     - Advanced reinforcement learning integration
     - Real-time market data processing
+    - Advanced explainability and transparency
     """
     
     def __init__(self):
@@ -54,8 +56,9 @@ class AIEngine:
         self.employee_factory = AIEmployeeFactory()
         self.learning_engine = LearningEngine()
         self.advanced_rl_engine = AdvancedRLEngine()  # Advanced RL Engine
+        self.explainability_engine = AdvancedExplainabilityEngine()  # NEW: Explainability Engine
         self.data_manager = DataManager()
-        self.real_time_data = RealTimeMarketDataProvider()  # NEW: Real-time data
+        self.real_time_data = RealTimeMarketDataProvider()  # Real-time data
         self.metrics_collector = MetricsCollector()
         self.security_manager = SecurityManager()
         
@@ -76,7 +79,11 @@ class AIEngine:
         self.monitored_symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "BTC-USD", "ETH-USD"]
         self.market_events_queue = asyncio.Queue()
         
-        logger.info("AI Engine initialized successfully with Advanced RL and Real-time Data capabilities")
+        # Explainability state
+        self.explainability_enabled = True
+        self.explanation_history: List[ExplanationResult] = []
+        
+        logger.info("AI Engine initialized successfully with Advanced RL, Real-time Data, and Explainability capabilities")
     
     async def process_user_input(self, user_input: str, session_id: str, user_id: str) -> str:
         """
@@ -140,6 +147,14 @@ class AIEngine:
                 if not rl_success:
                     logger.warning("Advanced RL Engine initialization failed, continuing without RL")
                     self.rl_enabled = False
+            
+            # Initialize explainability engine
+            if self.explainability_enabled:
+                logger.info("Initializing Advanced Explainability Engine...")
+                exp_success = await self.explainability_engine.initialize()
+                if not exp_success:
+                    logger.warning("Explainability Engine initialization failed, continuing without explainability")
+                    self.explainability_enabled = False
             
             # Initialize real-time market data
             if self.real_time_enabled:
@@ -234,6 +249,8 @@ class AIEngine:
                 return await self._handle_configure_system(intent, context)
             elif action == "help":
                 return self._handle_help()
+            elif action == "explain_decision":
+                return await self._handle_explain_decision(intent, context)
             else:
                 return await self._handle_unknown_action(intent, context)
                 
@@ -242,7 +259,7 @@ class AIEngine:
             return f"I encountered an error while processing your request: {str(e)}"
     
     async def _handle_create_ai_employee(self, intent: Dict[str, Any], context: ConversationContext) -> str:
-        """Handle AI Employee creation with advanced RL and real-time data integration."""
+        """Handle AI Employee creation with advanced RL, real-time data, and explainability integration."""
         parameters = intent.get("parameters", {})
         role = parameters.get("role", "research_analyst")
         specialization = parameters.get("specialization", "general")
@@ -266,7 +283,8 @@ class AIEngine:
                     "specialization": specialization,
                     "created_at": datetime.now(),
                     "rl_enabled": self.rl_enabled,
-                    "real_time_enabled": self.real_time_enabled
+                    "real_time_enabled": self.real_time_enabled,
+                    "explainability_enabled": self.explainability_enabled
                 }
                 
                 # Update context
@@ -280,12 +298,16 @@ class AIEngine:
 - **Specialization**: {specialization}
 - **Advanced RL**: {'Enabled' if self.rl_enabled else 'Disabled'}
 - **Real-time Data**: {'Enabled' if self.real_time_enabled else 'Disabled'}
+- **Explainability**: {'Enabled' if self.explainability_enabled else 'Disabled'}
 
 **Capabilities:**
 {self._get_role_capabilities(role)}
 
 **Real-time Features:**
 {self._get_real_time_capabilities(role)}
+
+**Explainability Features:**
+{self._get_explainability_capabilities(role)}
 
 **Training Status**: Initializing...
 **Estimated Training Time**: {self._estimate_training_time(role)} hours
@@ -797,7 +819,7 @@ Return only valid JSON. Be confident in your analysis."""
         logger.info("AI Engine shutdown complete") 
 
     async def get_ai_employee_action(self, employee_id: str, market_data: Dict[str, Any], portfolio_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Get AI Employee action using advanced RL."""
+        """Get AI Employee action using advanced RL with explainability."""
         try:
             if employee_id not in self.active_ai_employees:
                 return {"error": "Employee not found"}
@@ -809,20 +831,290 @@ Return only valid JSON. Be confident in your analysis."""
             if self.rl_enabled and employee_id in self.advanced_rl_engine.models:
                 action = await self.advanced_rl_engine.get_action(employee_id, rl_state)
                 
+                # Generate explanation if enabled
+                explanation = None
+                if self.explainability_enabled:
+                    explanation = await self._generate_action_explanation(
+                        employee_id, action, market_data, portfolio_state
+                    )
+                
                 return {
                     "action_type": action.action_type,
                     "action_value": action.action_value,
                     "confidence": action.confidence,
                     "metadata": action.metadata,
-                    "rl_engine": "advanced"
+                    "rl_engine": "advanced",
+                    "explanation": explanation
                 }
             else:
                 # Fallback to basic decision making
-                return await self._get_basic_action(employee_id, market_data, portfolio_state)
+                basic_action = await self._get_basic_action(employee_id, market_data, portfolio_state)
+                
+                # Generate explanation for basic action
+                if self.explainability_enabled:
+                    basic_action["explanation"] = await self._generate_action_explanation(
+                        employee_id, basic_action, market_data, portfolio_state
+                    )
+                
+                return basic_action
                 
         except Exception as e:
             logger.error(f"Error getting action for {employee_id}: {str(e)}")
             return {"error": str(e)}
+
+    async def _generate_action_explanation(
+        self, 
+        employee_id: str, 
+        action: Any, 
+        market_data: Dict[str, Any], 
+        portfolio_state: Dict[str, Any]
+    ) -> Optional[ExplanationResult]:
+        """Generate explanation for an AI action."""
+        try:
+            # Create decision context
+            context = DecisionContext(
+                market_data=market_data,
+                portfolio_state=portfolio_state,
+                risk_metrics=self._extract_risk_metrics(portfolio_state),
+                historical_context=self._get_historical_context(employee_id),
+                regulatory_context=self._get_regulatory_context()
+            )
+            
+            # Create decision data
+            decision_data = {
+                "action_type": action.get("action_type", "unknown"),
+                "action_value": action.get("action_value", 0),
+                "confidence": action.get("confidence", 0),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Generate explanation
+            explanation = await self.explainability_engine.explain_decision(
+                employee_id=employee_id,
+                decision_data=decision_data,
+                context=context,
+                explanation_types=["rule_based", "statistical", "regulatory"]
+            )
+            
+            # Store in history
+            self.explanation_history.append(explanation)
+            
+            return explanation
+            
+        except Exception as e:
+            logger.error(f"Error generating action explanation: {str(e)}")
+            return None
+
+    def _extract_risk_metrics(self, portfolio_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract risk metrics from portfolio state."""
+        return {
+            "var_95": portfolio_state.get("var_95", 0),
+            "max_drawdown": portfolio_state.get("max_drawdown", 0),
+            "sharpe_ratio": portfolio_state.get("sharpe_ratio", 0),
+            "beta": portfolio_state.get("beta", 0)
+        }
+
+    def _get_historical_context(self, employee_id: str) -> Dict[str, Any]:
+        """Get historical context for an employee."""
+        try:
+            # Get recent decisions
+            recent_decisions = [
+                exp for exp in self.explanation_history
+                if exp.employee_id == employee_id and 
+                exp.timestamp > datetime.now() - timedelta(hours=24)
+            ]
+            
+            return {
+                "recent_decisions": len(recent_decisions),
+                "average_confidence": np.mean([exp.confidence for exp in recent_decisions]) if recent_decisions else 0,
+                "decision_types": list(set([exp.metadata.get("decision_type", "unknown") for exp in recent_decisions]))
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting historical context: {str(e)}")
+            return {}
+
+    def _get_regulatory_context(self) -> Dict[str, Any]:
+        """Get regulatory context."""
+        return {
+            "compliance_score": 0.98,  # Simulated compliance score
+            "violations": [],  # No violations
+            "regulatory_environment": "stable"
+        }
+
+    async def get_decision_explanation(self, decision_id: str) -> Optional[ExplanationResult]:
+        """Get explanation for a specific decision."""
+        try:
+            # Check cache first
+            if decision_id in self.explainability_engine.explanations_cache:
+                return self.explainability_engine.explanations_cache[decision_id]
+            
+            # Check explanation history
+            for explanation in self.explanation_history:
+                if explanation.decision_id == decision_id:
+                    return explanation
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting decision explanation: {str(e)}")
+            return None
+
+    async def get_employee_explanations(self, employee_id: str, hours_back: int = 24) -> List[ExplanationResult]:
+        """Get recent explanations for an employee."""
+        try:
+            cutoff_time = datetime.now() - timedelta(hours=hours_back)
+            
+            explanations = [
+                exp for exp in self.explanation_history
+                if exp.employee_id == employee_id and exp.timestamp > cutoff_time
+            ]
+            
+            return explanations
+            
+        except Exception as e:
+            logger.error(f"Error getting employee explanations: {str(e)}")
+            return []
+
+    async def get_explanation_summary(self, employee_id: str) -> Dict[str, Any]:
+        """Get explanation summary for an employee."""
+        try:
+            if self.explainability_enabled:
+                return await self.explainability_engine.get_explanation_summary(employee_id)
+            else:
+                return {"error": "Explainability not enabled"}
+        except Exception as e:
+            logger.error(f"Error getting explanation summary: {str(e)}")
+            return {"error": str(e)}
+
+    async def get_feature_importance(self, employee_id: str) -> List[Dict[str, Any]]:
+        """Get feature importance for an employee."""
+        try:
+            if self.explainability_enabled:
+                features = await self.explainability_engine.get_feature_importance(employee_id, {})
+                return [
+                    {
+                        "name": feature.feature_name,
+                        "importance": feature.importance_score,
+                        "direction": feature.direction,
+                        "description": feature.description
+                    }
+                    for feature in features
+                ]
+            else:
+                return []
+        except Exception as e:
+            logger.error(f"Error getting feature importance: {str(e)}")
+            return []
+
+    async def _handle_explain_decision(self, intent: Dict[str, Any], context: ConversationContext) -> str:
+        """Handle decision explanation request."""
+        try:
+            parameters = intent.get("parameters", {})
+            employee_id = parameters.get("employee_id", "")
+            decision_id = parameters.get("decision_id", "")
+            
+            if not employee_id:
+                return "Please specify an employee ID to get decision explanations."
+            
+            if decision_id:
+                # Get specific decision explanation
+                explanation = await self.get_decision_explanation(decision_id)
+                if explanation:
+                    return self._format_decision_explanation(explanation)
+                else:
+                    return f"Decision {decision_id} not found."
+            else:
+                # Get recent explanations for employee
+                explanations = await self.get_employee_explanations(employee_id, hours_back=24)
+                if explanations:
+                    return self._format_employee_explanations(employee_id, explanations)
+                else:
+                    return f"No recent explanations found for employee {employee_id}."
+                    
+        except Exception as e:
+            logger.error(f"Error handling explain decision: {str(e)}")
+            return f"I encountered an error while explaining the decision: {str(e)}"
+
+    def _format_decision_explanation(self, explanation: ExplanationResult) -> str:
+        """Format a decision explanation for display."""
+        try:
+            response = f"""**Decision Explanation for {explanation.employee_id}**
+
+**Decision ID**: {explanation.decision_id}
+**Confidence**: {explanation.confidence:.2%}
+**Timestamp**: {explanation.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
+
+**Key Factors:**
+"""
+            
+            for factor in explanation.factors[:5]:  # Top 5 factors
+                response += f"• **{factor['name']}**: {factor['description']}\n"
+            
+            if explanation.visualization:
+                response += "\n**Visualization**: Available (base64 encoded)\n"
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error formatting decision explanation: {str(e)}")
+            return f"Error formatting explanation: {str(e)}"
+
+    def _format_employee_explanations(self, employee_id: str, explanations: List[ExplanationResult]) -> str:
+        """Format employee explanations for display."""
+        try:
+            response = f"""**Recent Explanations for {employee_id}**
+
+**Total Explanations**: {len(explanations)}
+**Average Confidence**: {np.mean([exp.confidence for exp in explanations]):.2%}
+
+**Recent Decisions:**
+"""
+            
+            for exp in explanations[-5:]:  # Last 5 explanations
+                response += f"• **{exp.decision_id}**: {exp.confidence:.2%} confidence\n"
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error formatting employee explanations: {str(e)}")
+            return f"Error formatting explanations: {str(e)}"
+
+    def _get_explainability_capabilities(self, role: str) -> str:
+        """Get explainability capabilities for a role."""
+        capabilities = {
+            "research_analyst": """
+• SHAP-based feature importance analysis
+• LIME-based local explanations
+• Decision rationale transparency
+• Market analysis explanations
+• Pattern recognition insights""",
+            "trader": """
+• Trade decision explanations
+• Risk-reward analysis transparency
+• Execution strategy rationale
+• Portfolio impact analysis
+• Market timing explanations""",
+            "risk_manager": """
+• Risk assessment explanations
+• VaR calculation transparency
+• Stress testing rationale
+• Risk factor analysis
+• Compliance risk explanations""",
+            "compliance_officer": """
+• Regulatory decision explanations
+• Compliance rule transparency
+• Audit trail explanations
+• Violation analysis
+• Policy interpretation rationale""",
+            "data_specialist": """
+• Data processing explanations
+• Feature engineering transparency
+• Data quality analysis
+• Pipeline decision rationale
+• Model performance insights"""
+        }
+        return capabilities.get(role, "• Decision transparency\n• Feature importance analysis\n• Rationale explanations")
 
     def _create_rl_state(self, market_data: Dict[str, Any], portfolio_state: Dict[str, Any]) -> RLState:
         """Create RL state from market and portfolio data."""

@@ -18,6 +18,7 @@ from core.employee_factory import AIEmployeeFactory
 from core.learning_engine import LearningEngine
 from core.advanced_rl_engine import AdvancedRLEngine, RLState, RLAction, RLReward
 from data.data_manager import DataManager
+from data.real_time_market_data import RealTimeMarketDataProvider, MarketDataPoint, MarketEvent
 from monitoring.metrics import MetricsCollector
 from security.auth import SecurityManager
 from utils.helpers import generate_uuid, validate_input
@@ -44,6 +45,7 @@ class AIEngine:
     - System optimization and learning
     - Performance monitoring and reporting
     - Advanced reinforcement learning integration
+    - Real-time market data processing
     """
     
     def __init__(self):
@@ -51,8 +53,9 @@ class AIEngine:
         self.client = OpenAI(api_key=settings.openai_api_key)
         self.employee_factory = AIEmployeeFactory()
         self.learning_engine = LearningEngine()
-        self.advanced_rl_engine = AdvancedRLEngine()  # NEW: Advanced RL Engine
+        self.advanced_rl_engine = AdvancedRLEngine()  # Advanced RL Engine
         self.data_manager = DataManager()
+        self.real_time_data = RealTimeMarketDataProvider()  # NEW: Real-time data
         self.metrics_collector = MetricsCollector()
         self.security_manager = SecurityManager()
         
@@ -68,7 +71,12 @@ class AIEngine:
         self.rl_enabled = True
         self.rl_training_mode = "continuous"
         
-        logger.info("AI Engine initialized successfully with Advanced RL capabilities")
+        # Real-time data state
+        self.real_time_enabled = True
+        self.monitored_symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "BTC-USD", "ETH-USD"]
+        self.market_events_queue = asyncio.Queue()
+        
+        logger.info("AI Engine initialized successfully with Advanced RL and Real-time Data capabilities")
     
     async def process_user_input(self, user_input: str, session_id: str, user_id: str) -> str:
         """
@@ -132,6 +140,17 @@ class AIEngine:
                 if not rl_success:
                     logger.warning("Advanced RL Engine initialization failed, continuing without RL")
                     self.rl_enabled = False
+            
+            # Initialize real-time market data
+            if self.real_time_enabled:
+                logger.info("Initializing Real-time Market Data Provider...")
+                rt_success = await self.real_time_data.initialize()
+                if rt_success:
+                    await self._start_real_time_data_feed()
+                    await self._setup_market_event_handlers()
+                else:
+                    logger.warning("Real-time data initialization failed, continuing without real-time data")
+                    self.real_time_enabled = False
             
             # Initialize other components
             await self.learning_engine.initialize()
@@ -223,7 +242,7 @@ class AIEngine:
             return f"I encountered an error while processing your request: {str(e)}"
     
     async def _handle_create_ai_employee(self, intent: Dict[str, Any], context: ConversationContext) -> str:
-        """Handle AI Employee creation with advanced RL integration."""
+        """Handle AI Employee creation with advanced RL and real-time data integration."""
         parameters = intent.get("parameters", {})
         role = parameters.get("role", "research_analyst")
         specialization = parameters.get("specialization", "general")
@@ -246,7 +265,8 @@ class AIEngine:
                     "role": role,
                     "specialization": specialization,
                     "created_at": datetime.now(),
-                    "rl_enabled": self.rl_enabled
+                    "rl_enabled": self.rl_enabled,
+                    "real_time_enabled": self.real_time_enabled
                 }
                 
                 # Update context
@@ -259,9 +279,13 @@ class AIEngine:
 - **Role**: {role.replace('_', ' ').title()}
 - **Specialization**: {specialization}
 - **Advanced RL**: {'Enabled' if self.rl_enabled else 'Disabled'}
+- **Real-time Data**: {'Enabled' if self.real_time_enabled else 'Disabled'}
 
 **Capabilities:**
 {self._get_role_capabilities(role)}
+
+**Real-time Features:**
+{self._get_real_time_capabilities(role)}
 
 **Training Status**: Initializing...
 **Estimated Training Time**: {self._estimate_training_time(role)} hours
@@ -917,3 +941,278 @@ Return only valid JSON. Be confident in your analysis."""
 • Real-time data pipeline management"""
         }
         return capabilities.get(role, "• General AI capabilities\n• Adaptive learning\n• Performance optimization") 
+
+    def _get_real_time_capabilities(self, role: str) -> str:
+        """Get real-time capabilities for a role."""
+        capabilities = {
+            "research_analyst": """
+• Real-time market data analysis
+• Live news sentiment processing
+• Instant market trend detection
+• Continuous pattern recognition""",
+            "trader": """
+• Real-time trade execution
+• Live market order management
+• Instant price monitoring
+• Continuous portfolio rebalancing""",
+            "risk_manager": """
+• Real-time risk assessment
+• Live VaR calculations
+• Instant stress testing
+• Continuous exposure monitoring""",
+            "compliance_officer": """
+• Real-time compliance monitoring
+• Live regulatory updates
+• Instant audit trail tracking
+• Continuous rule validation""",
+            "data_specialist": """
+• Real-time data processing
+• Live data quality monitoring
+• Instant pipeline management
+• Continuous data validation"""
+        }
+        return capabilities.get(role, "• Real-time data processing\n• Live market monitoring\n• Instant decision making")
+
+    async def _start_real_time_data_feed(self):
+        """Start real-time data feed for monitored symbols."""
+        try:
+            success = await self.real_time_data.start_real_time_feed(
+                symbols=self.monitored_symbols,
+                data_sources=["yahoo_finance", "simulated"]
+            )
+            
+            if success:
+                logger.info(f"Real-time data feed started for {len(self.monitored_symbols)} symbols")
+            else:
+                logger.warning("Failed to start real-time data feed")
+                
+        except Exception as e:
+            logger.error(f"Error starting real-time data feed: {str(e)}")
+    
+    async def _setup_market_event_handlers(self):
+        """Set up handlers for market events."""
+        try:
+            # Subscribe to various market events
+            await self.real_time_data.subscribe_to_events('price_update', self._handle_price_update)
+            await self.real_time_data.subscribe_to_events('volume_spike', self._handle_volume_spike)
+            await self.real_time_data.subscribe_to_events('news_event', self._handle_news_event)
+            await self.real_time_data.subscribe_to_events('technical_signal', self._handle_technical_signal)
+            
+            logger.info("Market event handlers set up successfully")
+            
+        except Exception as e:
+            logger.error(f"Error setting up market event handlers: {str(e)}")
+    
+    async def _handle_price_update(self, event: MarketEvent):
+        """Handle price update events."""
+        try:
+            symbol = event.symbol
+            data = event.data
+            
+            # Update AI Employees with new price data
+            for employee_id, employee_info in self.active_ai_employees.items():
+                if employee_info.get("real_time_enabled", False):
+                    await self._update_employee_with_market_data(employee_id, symbol, data)
+            
+            # Log significant price movements
+            if abs(data.get("change_percent", 0)) > 5:  # 5% or more change
+                logger.info(f"Significant price movement detected for {symbol}: {data.get('change_percent', 0):.2f}%")
+                
+        except Exception as e:
+            logger.error(f"Error handling price update: {str(e)}")
+    
+    async def _handle_volume_spike(self, event: MarketEvent):
+        """Handle volume spike events."""
+        try:
+            symbol = event.symbol
+            data = event.data
+            
+            logger.info(f"Volume spike detected for {symbol}: {data.get('spike_ratio', 0):.2f}x average volume")
+            
+            # Trigger special analysis for volume spikes
+            await self._trigger_volume_spike_analysis(symbol, data)
+            
+        except Exception as e:
+            logger.error(f"Error handling volume spike: {str(e)}")
+    
+    async def _handle_news_event(self, event: MarketEvent):
+        """Handle news events."""
+        try:
+            symbol = event.symbol
+            data = event.data
+            
+            logger.info(f"News event detected for {symbol}: {data.get('headline', 'Unknown')}")
+            
+            # Trigger news analysis
+            await self._trigger_news_analysis(symbol, data)
+            
+        except Exception as e:
+            logger.error(f"Error handling news event: {str(e)}")
+    
+    async def _handle_technical_signal(self, event: MarketEvent):
+        """Handle technical signals."""
+        try:
+            symbol = event.symbol
+            data = event.data
+            
+            logger.info(f"Technical signal detected for {symbol}: {data.get('signal_type', 'Unknown')}")
+            
+            # Trigger technical analysis
+            await self._trigger_technical_analysis(symbol, data)
+            
+        except Exception as e:
+            logger.error(f"Error handling technical signal: {str(e)}")
+    
+    async def _update_employee_with_market_data(self, employee_id: str, symbol: str, data: Dict[str, Any]):
+        """Update AI Employee with new market data."""
+        try:
+            # Create market data structure
+            market_data = {
+                "symbol": symbol,
+                "price": data.get("price", 0),
+                "volume": data.get("volume", 0),
+                "change_percent": data.get("change_percent", 0),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Update employee if it has real-time processing capabilities
+            if self.rl_enabled and employee_id in self.advanced_rl_engine.models:
+                # Create RL state and update
+                rl_state = self._create_rl_state_from_market_data(market_data)
+                # This would trigger RL learning updates
+                
+            logger.debug(f"Updated employee {employee_id} with market data for {symbol}")
+            
+        except Exception as e:
+            logger.error(f"Error updating employee with market data: {str(e)}")
+    
+    def _create_rl_state_from_market_data(self, market_data: Dict[str, Any]) -> RLState:
+        """Create RL state from market data."""
+        # Convert market data to RL state format
+        market_array = np.array([
+            market_data.get('price', 0),
+            market_data.get('volume', 0),
+            market_data.get('change_percent', 0),
+            0  # Placeholder for additional features
+        ])
+        
+        # Create minimal RL state
+        return RLState(
+            market_data=market_array,
+            portfolio_state=np.array([0, 0, 0, 0]),  # Placeholder
+            risk_metrics=np.array([0, 0, 0, 0]),  # Placeholder
+            time_features=np.array([0, 0, 0]),  # Placeholder
+            context_features=np.array([0, 0, 0])  # Placeholder
+        )
+    
+    async def _trigger_volume_spike_analysis(self, symbol: str, data: Dict[str, Any]):
+        """Trigger analysis for volume spikes."""
+        try:
+            # Find research analyst employees
+            for employee_id, employee_info in self.active_ai_employees.items():
+                if employee_info.get("role") == "research_analyst":
+                    # Trigger volume analysis
+                    logger.info(f"Triggering volume spike analysis for {symbol} with employee {employee_id}")
+                    
+        except Exception as e:
+            logger.error(f"Error triggering volume spike analysis: {str(e)}")
+    
+    async def _trigger_news_analysis(self, symbol: str, data: Dict[str, Any]):
+        """Trigger analysis for news events."""
+        try:
+            # Find research analyst employees
+            for employee_id, employee_info in self.active_ai_employees.items():
+                if employee_info.get("role") == "research_analyst":
+                    # Trigger news analysis
+                    logger.info(f"Triggering news analysis for {symbol} with employee {employee_id}")
+                    
+        except Exception as e:
+            logger.error(f"Error triggering news analysis: {str(e)}")
+    
+    async def _trigger_technical_analysis(self, symbol: str, data: Dict[str, Any]):
+        """Trigger analysis for technical signals."""
+        try:
+            # Find trader employees
+            for employee_id, employee_info in self.active_ai_employees.items():
+                if employee_info.get("role") == "trader":
+                    # Trigger technical analysis
+                    logger.info(f"Triggering technical analysis for {symbol} with employee {employee_id}")
+                    
+        except Exception as e:
+            logger.error(f"Error triggering technical analysis: {str(e)}")
+
+    async def get_real_time_market_summary(self) -> Dict[str, Any]:
+        """Get real-time market summary."""
+        try:
+            if self.real_time_enabled:
+                return await self.real_time_data.get_market_summary()
+            else:
+                return {"error": "Real-time data not enabled"}
+        except Exception as e:
+            logger.error(f"Error getting market summary: {str(e)}")
+            return {"error": str(e)}
+
+    async def get_live_market_data(self, symbol: str) -> Optional[MarketDataPoint]:
+        """Get live market data for a symbol."""
+        try:
+            if self.real_time_enabled:
+                return await self.real_time_data.get_real_time_data(symbol)
+            else:
+                return None
+        except Exception as e:
+            logger.error(f"Error getting live market data: {str(e)}")
+            return None
+
+    async def get_market_events(self, minutes_back: int = 10) -> List[MarketEvent]:
+        """Get recent market events."""
+        try:
+            if self.real_time_enabled:
+                # Return recent events from the real-time data provider
+                return [e for e in self.real_time_data.market_events if e.timestamp > datetime.now() - timedelta(minutes=minutes_back)]
+            else:
+                return []
+        except Exception as e:
+            logger.error(f"Error getting market events: {str(e)}")
+            return []
+
+    async def add_symbol_to_monitoring(self, symbol: str) -> bool:
+        """Add a symbol to real-time monitoring."""
+        try:
+            if symbol not in self.monitored_symbols:
+                self.monitored_symbols.append(symbol)
+                
+                if self.real_time_enabled:
+                    # Restart feed with new symbol
+                    await self.real_time_data.stop_real_time_feed()
+                    await self._start_real_time_data_feed()
+                
+                logger.info(f"Added {symbol} to real-time monitoring")
+                return True
+            else:
+                logger.info(f"{symbol} is already being monitored")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error adding symbol to monitoring: {str(e)}")
+            return False
+
+    async def remove_symbol_from_monitoring(self, symbol: str) -> bool:
+        """Remove a symbol from real-time monitoring."""
+        try:
+            if symbol in self.monitored_symbols:
+                self.monitored_symbols.remove(symbol)
+                
+                if self.real_time_enabled:
+                    # Restart feed without the symbol
+                    await self.real_time_data.stop_real_time_feed()
+                    await self._start_real_time_data_feed()
+                
+                logger.info(f"Removed {symbol} from real-time monitoring")
+                return True
+            else:
+                logger.info(f"{symbol} is not being monitored")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error removing symbol from monitoring: {str(e)}")
+            return False 

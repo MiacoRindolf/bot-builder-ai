@@ -44,6 +44,8 @@
 - OpenAI model access: Use available models (gpt-3.5rbo)
 - JSON serialization: Convert datetime objects to strings
 - Streamlit command not found: Use `python -m streamlit run`
+- Pytest PATH issues: ALWAYS use `python -m pytest` instead of direct `pytest` command
+- PowerShell hanging: Use alternative commands or run in background when commands hang
 
 ## Learning and Rule Update Process
 - Search for available tools or methods to update cursor rules
@@ -65,6 +67,9 @@
 3. **PowerShell Awareness**: Use Windows-compatible commands and expect different behavior
 4. **Error Recovery**: When commands hang, try alternative approaches immediately
 5. **Learning Documentation**: Create structured learning notes when user requests rule updates
+6. **Pytest Command**: ALWAYS use `python -m pytest` never direct `pytest` command
+7. **Self-Monitoring**: Check if I'm getting stuck and immediately try alternative approaches
+8. **Problem-Solving Process**: Follow Check → Learn → Resolve approach, don't jump to alternatives
 
 ## Long-term Improvements
 1. **Command Alternatives**: Always have backup commands ready
@@ -150,6 +155,8 @@
 - **Advanced Features**: Implement complex systems with proper error handling and fallbacks
 - **System Integration**: Ensure all components work together seamlessly
 - **Roadmap Execution**: Follow systematic approach to implementing advanced features
+- **Pytest Issues**: ALWAYS use `python -m pytest` - direct pytest command fails in PowerShell
+- **Self-Stuck Detection**: When user says "got stuck" or similar, immediately try alternative approaches
 
 ## Self-Evolving Rules Mechanism
 

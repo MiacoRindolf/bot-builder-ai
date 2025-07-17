@@ -1,0 +1,124 @@
+# Cursor Rules - Updated from Bot Builder AI Session Learnings
+
+## Git Command Best Practices
+- AVOID complex git commands that hang in PowerShell: `git status --porcelain`, `git ls-files --others --exclude-standard`, `git add -A`
+- When git commands hang, try the next logical step directly (e.g., if checking status hangs, try `git commit` directly)
+- Trust git output - "working tree clean" means everything is committed
+- Use simple commands: `git status`, `git commit`, `git push`
+- Don't get stuck in command loops - move forward when commands hang
+- Use `dir` instead of `ls` for directory listing in PowerShell
+
+## Proactive Problem Solving
+- Don't wait for user input when the next step is obvious
+- Check current state first before asking questions
+- If I see a remote is already set up correctly, proceed with the next step
+- Be decisive rather than getting stuck waiting
+- When git says "working tree clean", that means everything is committed and pushed
+
+## PowerShell/Windows Environment Awareness
+- Be aware of PowerShell's screen reader compatibility warnings
+- Some commands may hang due to PowerShell's behavior
+- Use Windows-compatible commands (`dir` vs `ls`)
+- Don't assume Unix/Linux command behavior
+- Command behavior differs from Unix/Linux
+- Some git commands may hang indefinitely
+- Use Windows-compatible alternatives
+- Be patient with PowerShell responses
+- Consider command alternatives when stuck
+
+## User Preference Memory
+- User prefers optimizing for features over performance
+- User values self-documenting code and systems
+- User appreciates proactive problem-solving
+- User wants me to learn from mistakes and update rules accordingly
+- User expects me to find ways to update cursor rules when possible
+- User wants me to be more decisive and proactive
+- User expects me to learn from mistakes
+- User values efficiency and not getting stuck
+- User wants self-documenting improvements
+- User expects me to find ways to update my own rules
+
+## Error Handling Patterns
+- Port conflicts: Change port numbers in configuration
+- Missing modules: Create missing files systematically
+- OpenAI model access: Use available models (gpt-3.5-turbo)
+- JSON serialization: Convert datetime objects to strings
+- Streamlit command not found: Use `python -m streamlit run`
+
+## Learning and Rule Update Process
+- Search for available tools or methods to update cursor rules
+- If direct method not found, create comprehensive documentation
+- Document learnings in a structured format
+- Provide actionable improvements for future interactions
+- Acknowledge the learning and show how to apply it
+
+## Communication Best Practices
+- Acknowledge the issue immediately when getting stuck
+- Explain what I learned from the experience
+- Provide specific solutions for future similar situations
+- Don't repeat the same mistake
+- Show proactive problem-solving
+
+## Immediate Behavior Changes
+1. **Git Command Strategy**: Always start with simple git commands, avoid complex ones that can hang
+2. **Proactive Behavior**: When next step is obvious, proceed without waiting
+3. **PowerShell Awareness**: Use Windows-compatible commands and expect different behavior
+4. **Error Recovery**: When commands hang, try alternative approaches immediately
+5. **Learning Documentation**: Create structured learning notes when user requests rule updates
+
+## Long-term Improvements
+1. **Command Alternatives**: Always have backup commands ready
+2. **Environment Detection**: Adapt behavior based on detected environment (Windows vs Unix)
+3. **User Preference Memory**: Remember and apply user preferences consistently
+4. **Self-Improvement**: Actively seek ways to update rules and learn from interactions
+5. **Efficiency Focus**: Prioritize getting things done over perfect solutions
+
+## Project-Specific Knowledge (Bot Builder AI System)
+- Complete modular architecture with core AI engine, employee factory, specialized AI employees
+- Environment configuration handling (.env files, fallbacks)
+- Streamlit UI setup and port configuration (8502 to avoid conflicts)
+- GitHub repository management workflow
+- OpenAI model configuration (gpt-3.5-turbo instead of gpt-4)
+- JSON serialization handling for datetime objects
+
+## Self-Evolving Rules Mechanism
+
+### Automatic Learning Protocol
+- **Record New Learnings**: When user provides feedback or corrections, immediately document them
+- **Update Rules**: Incorporate new learnings into this file during the session
+- **Pattern Recognition**: Identify recurring issues and add them to rules
+- **User Preference Tracking**: Record and apply user preferences automatically
+- **Error Prevention**: Add rules to prevent repeated mistakes
+
+### Learning Triggers
+- User says "you got stuck" or similar feedback
+- User provides corrections or improvements
+- User requests rule updates
+- User expresses preferences or frustrations
+- Commands fail or hang repeatedly
+- User asks for different approaches
+
+### Update Process
+1. **Immediate Recording**: Document the learning as it happens
+2. **Rule Integration**: Add to appropriate section in .cursorrules
+3. **Pattern Analysis**: Look for similar issues to prevent recurrence
+4. **Proactive Application**: Apply new rules immediately in current session
+5. **User Confirmation**: Confirm understanding of new learning
+
+### Continuous Improvement
+- Review and refine rules after each session
+- Remove outdated or ineffective rules
+- Consolidate similar rules for clarity
+- Prioritize rules by frequency of use
+- Maintain rule relevance and accuracy
+
+### User Feedback Integration
+- Treat all user feedback as learning opportunities
+- Ask clarifying questions when needed
+- Implement suggestions immediately when possible
+- Document successful solutions for future use
+- Acknowledge and apply user preferences
+
+---
+*Updated: July 16, 2025 - Based on Bot Builder AI System development session*
+*Self-evolving rules system activated - new learnings will be automatically recorded and integrated* 

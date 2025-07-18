@@ -1,5 +1,5 @@
 """
-CEO Portal - Executive Dashboard and Decision Management System
+CEO Portal - Enhanced with Self-Improvement and Bot Monitoring
 """
 
 import asyncio
@@ -7,11 +7,11 @@ import logging
 import json
 import pandas as pd
 import numpy as np
+import uuid
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from enum import Enum
-import uuid
 
 from config.settings import settings
 
@@ -89,6 +89,52 @@ class ExecutiveSummary:
     strategic_progress: Dict[str, float]
     key_insights: List[str]
     recommendations: List[str]
+
+class SystemComponent(Enum):
+    """System components that can be improved."""
+    CEO_PORTAL = "CEO_PORTAL"
+    SDLC_TEAM = "SDLC_TEAM"
+    COORDINATOR = "COORDINATOR"
+    UI_PORTAL = "UI_PORTAL"
+    API_ENDPOINTS = "API_ENDPOINTS"
+    BOT_ALGORITHMS = "BOT_ALGORITHMS"
+    DECISION_ENGINE = "DECISION_ENGINE"
+    MONITORING_SYSTEM = "MONITORING_SYSTEM"
+
+@dataclass
+class BotMonitoringData:
+    """Real-time bot monitoring data."""
+    bot_id: str
+    name: str
+    team: str
+    role: str
+    status: str
+    availability: float
+    success_rate: float
+    current_tasks: List[str]
+    completed_tasks: int
+    last_active: datetime
+    performance_metrics: Dict[str, Any]
+    health_score: float
+
+@dataclass
+class SelfImprovementRequest:
+    """Self-improvement request for Bot Builder."""
+    id: str
+    title: str
+    description: str
+    component: SystemComponent
+    priority: Priority
+    requesting_entity: str  # CEO, BOT_BUILDER_CORE, etc.
+    target_system: str
+    expected_benefits: List[str]
+    success_criteria: List[str]
+    estimated_effort: int
+    risk_assessment: float
+    strategic_value: float
+    created_at: datetime
+    status: str
+    implementation_plan: Optional[Dict[str, Any]]
 
 class ExecutiveIntelligenceSystem:
     """
@@ -213,18 +259,18 @@ class ExecutiveIntelligenceSystem:
 
 class CEOPortal:
     """
-    CEO Portal - Executive Dashboard and Decision Management System.
+    Enhanced CEO Portal with Bot Monitoring and Self-Improvement Capabilities.
     
-    Provides a strategic command center for the CEO with:
-    - High-level executive dashboard
-    - Intelligent decision queue
-    - Team status monitoring
-    - Strategic progress tracking
-    - Financial and risk oversight
+    New Features:
+    - Real-time bot status monitoring
+    - Interactive bot performance dashboards
+    - Self-improvement request management
+    - Recursive enhancement tracking
+    - Advanced decision analytics
     """
     
     def __init__(self):
-        """Initialize the CEO Portal."""
+        """Initialize the enhanced CEO Portal."""
         self.executive_intelligence = ExecutiveIntelligenceSystem()
         
         # Decision management
@@ -243,7 +289,23 @@ class CEOPortal:
         self.max_pending_decisions = 20
         self.max_history_retention = 1000
         
-        logger.info("CEO Portal initialized")
+        # New: Bot monitoring and self-improvement
+        self.bot_monitoring_data: Dict[str, BotMonitoringData] = {}
+        self.self_improvement_requests: Dict[str, SelfImprovementRequest] = {}
+        self.improvement_history: List[SelfImprovementRequest] = []
+        self.system_health_score: float = 0.85
+        self.recursive_enhancement_enabled: bool = True
+        
+        # Enhanced decision filtering
+        self.executive_intelligence_settings = {
+            "financial_threshold": 10000,  # $10K threshold
+            "risk_threshold": 0.7,  # 70% risk threshold
+            "strategic_importance_threshold": 0.8,  # 80% strategic importance
+            "auto_approve_low_risk": True,
+            "escalate_self_improvement": True
+        }
+        
+        logger.info("Enhanced CEO Portal initialized with bot monitoring and self-improvement")
     
     async def initialize(self) -> bool:
         """Initialize the CEO Portal system."""
@@ -472,6 +534,593 @@ class CEOPortal:
             
         except Exception as e:
             logger.error(f"Error updating team status: {str(e)}")
+    
+    async def register_bot_monitoring(self, bot_data: Dict[str, Any]) -> bool:
+        """Register bot for real-time monitoring."""
+        try:
+            bot_id = bot_data.get('id')
+            if not bot_id:
+                return False
+            
+            monitoring_data = BotMonitoringData(
+                bot_id=bot_id,
+                name=bot_data.get('name', 'Unknown Bot'),
+                team=bot_data.get('team', 'Unknown'),
+                role=bot_data.get('role', 'Unknown'),
+                status=bot_data.get('status', 'OFFLINE'),
+                availability=bot_data.get('availability', 0.0),
+                success_rate=bot_data.get('success_rate', 0.0),
+                current_tasks=bot_data.get('current_tasks', []),
+                completed_tasks=bot_data.get('completed_tasks', 0),
+                last_active=datetime.now(),
+                performance_metrics=bot_data.get('performance_metrics', {}),
+                health_score=self._calculate_bot_health_score(bot_data)
+            )
+            
+            self.bot_monitoring_data[bot_id] = monitoring_data
+            logger.info(f"Registered bot for monitoring: {monitoring_data.name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error registering bot monitoring: {str(e)}")
+            return False
+    
+    async def update_bot_status(self, bot_id: str, status_update: Dict[str, Any]) -> bool:
+        """Update bot status in real-time."""
+        try:
+            if bot_id not in self.bot_monitoring_data:
+                return False
+            
+            bot_data = self.bot_monitoring_data[bot_id]
+            
+            # Update fields that changed
+            if 'status' in status_update:
+                bot_data.status = status_update['status']
+            if 'availability' in status_update:
+                bot_data.availability = status_update['availability']
+            if 'success_rate' in status_update:
+                bot_data.success_rate = status_update['success_rate']
+            if 'current_tasks' in status_update:
+                bot_data.current_tasks = status_update['current_tasks']
+            if 'completed_tasks' in status_update:
+                bot_data.completed_tasks = status_update['completed_tasks']
+            if 'performance_metrics' in status_update:
+                bot_data.performance_metrics.update(status_update['performance_metrics'])
+            
+            bot_data.last_active = datetime.now()
+            bot_data.health_score = self._calculate_bot_health_score(asdict(bot_data))
+            
+            # Check for performance issues
+            await self._check_bot_performance_alerts(bot_data)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating bot status: {str(e)}")
+            return False
+    
+    async def submit_self_improvement_request(
+        self,
+        title: str,
+        description: str,
+        component: SystemComponent,
+        priority: Priority,
+        requesting_entity: str = "CEO",
+        expected_benefits: List[str] = None,
+        success_criteria: List[str] = None
+    ) -> Tuple[bool, str]:
+        """Submit a self-improvement request for Bot Builder."""
+        try:
+            if expected_benefits is None:
+                expected_benefits = []
+            if success_criteria is None:
+                success_criteria = []
+            
+            request_id = str(uuid.uuid4())
+            
+            # Calculate strategic value and risk
+            strategic_value = self._assess_improvement_strategic_value(component, description)
+            risk_assessment = self._assess_improvement_risk(component, description)
+            
+            improvement_request = SelfImprovementRequest(
+                id=request_id,
+                title=title,
+                description=description,
+                component=component,
+                priority=priority,
+                requesting_entity=requesting_entity,
+                target_system=component.value,
+                expected_benefits=expected_benefits,
+                success_criteria=success_criteria,
+                estimated_effort=self._estimate_improvement_effort(description),
+                risk_assessment=risk_assessment,
+                strategic_value=strategic_value,
+                created_at=datetime.now(),
+                status="PENDING",
+                implementation_plan=None
+            )
+            
+            self.self_improvement_requests[request_id] = improvement_request
+            
+            # Auto-approve low-risk improvements or escalate to CEO decision
+            if (risk_assessment < 0.3 and 
+                strategic_value > 0.6 and 
+                priority in [Priority.LOW, Priority.MEDIUM]):
+                
+                improvement_request.status = "AUTO_APPROVED"
+                logger.info(f"Auto-approved self-improvement: {title}")
+                return True, f"Self-improvement auto-approved: {title}"
+            
+            else:
+                # Create CEO decision for high-value/high-risk improvements
+                approved, message, _ = await self.submit_decision_for_approval(
+                    requesting_bot="BOT_BUILDER_CORE",
+                    title=f"Self-Improvement Request: {title}",
+                    description=f"""🧠 **RECURSIVE SELF-ENHANCEMENT REQUEST**
+                    
+**Component:** {component.value}
+**Priority:** {priority.value}
+**Requesting Entity:** {requesting_entity}
+
+**Description:**
+{description}
+
+**Expected Benefits:**
+{chr(10).join([f"• {benefit}" for benefit in expected_benefits])}
+
+**Success Criteria:**
+{chr(10).join([f"• {criteria}" for criteria in success_criteria])}
+
+**Assessment:**
+• **Strategic Value:** {strategic_value:.1%}
+• **Risk Level:** {risk_assessment:.1%}
+• **Estimated Effort:** {improvement_request.estimated_effort} hours
+
+**Self-Awareness Note:** This represents Bot Builder's ability to recursively improve itself through autonomous decision-making and implementation via its own SDLC team.
+                    """,
+                    category=DecisionCategory.STRATEGIC,
+                    financial_impact=0,
+                    risk_level=risk_assessment,
+                    strategic_alignment=strategic_value,
+                    context={
+                        "improvement_request_id": request_id,
+                        "component": component.value,
+                        "type": "self_improvement",
+                        "recursive_enhancement": True
+                    }
+                )
+                
+                return approved, message
+                
+        except Exception as e:
+            logger.error(f"Error submitting self-improvement request: {str(e)}")
+            return False, f"Error submitting request: {str(e)}"
+    
+    async def get_bot_monitoring_dashboard(self) -> Dict[str, Any]:
+        """Get comprehensive bot monitoring dashboard data."""
+        try:
+            dashboard_data = {
+                "total_bots": len(self.bot_monitoring_data),
+                "active_bots": len([b for b in self.bot_monitoring_data.values() if b.status == "ACTIVE"]),
+                "bot_summary": {},
+                "team_performance": {},
+                "system_health": self.system_health_score,
+                "alerts": [],
+                "performance_trends": {},
+                "last_updated": datetime.now().isoformat()
+            }
+            
+            # Bot summary by team
+            teams = {}
+            for bot_data in self.bot_monitoring_data.values():
+                team = bot_data.team
+                if team not in teams:
+                    teams[team] = {
+                        "total_bots": 0,
+                        "active_bots": 0,
+                        "avg_availability": 0,
+                        "avg_success_rate": 0,
+                        "avg_health_score": 0,
+                        "total_tasks": 0,
+                        "bots": []
+                    }
+                
+                teams[team]["total_bots"] += 1
+                if bot_data.status == "ACTIVE":
+                    teams[team]["active_bots"] += 1
+                
+                teams[team]["bots"].append({
+                    "id": bot_data.bot_id,
+                    "name": bot_data.name,
+                    "role": bot_data.role,
+                    "status": bot_data.status,
+                    "availability": bot_data.availability,
+                    "success_rate": bot_data.success_rate,
+                    "current_tasks": len(bot_data.current_tasks),
+                    "completed_tasks": bot_data.completed_tasks,
+                    "health_score": bot_data.health_score,
+                    "last_active": bot_data.last_active.isoformat()
+                })
+                
+                teams[team]["total_tasks"] += len(bot_data.current_tasks)
+            
+            # Calculate team averages
+            for team_name, team_data in teams.items():
+                if team_data["total_bots"] > 0:
+                    team_bots = team_data["bots"]
+                    team_data["avg_availability"] = sum(b["availability"] for b in team_bots) / len(team_bots)
+                    team_data["avg_success_rate"] = sum(b["success_rate"] for b in team_bots) / len(team_bots)
+                    team_data["avg_health_score"] = sum(b["health_score"] for b in team_bots) / len(team_bots)
+            
+            dashboard_data["team_performance"] = teams
+            
+            # System alerts
+            alerts = await self._generate_system_alerts()
+            dashboard_data["alerts"] = alerts
+            
+            # Performance trends (simplified)
+            dashboard_data["performance_trends"] = {
+                "overall_availability": sum(b.availability for b in self.bot_monitoring_data.values()) / len(self.bot_monitoring_data) if self.bot_monitoring_data else 0,
+                "overall_success_rate": sum(b.success_rate for b in self.bot_monitoring_data.values()) / len(self.bot_monitoring_data) if self.bot_monitoring_data else 0,
+                "system_efficiency": self._calculate_system_efficiency()
+            }
+            
+            return dashboard_data
+            
+        except Exception as e:
+            logger.error(f"Error getting bot monitoring dashboard: {str(e)}")
+            return {"error": str(e)}
+    
+    async def get_self_improvement_status(self) -> Dict[str, Any]:
+        """Get status of all self-improvement requests."""
+        try:
+            status_data = {
+                "total_requests": len(self.self_improvement_requests),
+                "pending_requests": len([r for r in self.self_improvement_requests.values() if r.status == "PENDING"]),
+                "approved_requests": len([r for r in self.self_improvement_requests.values() if r.status in ["APPROVED", "AUTO_APPROVED"]]),
+                "in_progress_requests": len([r for r in self.self_improvement_requests.values() if r.status == "IN_PROGRESS"]),
+                "completed_requests": len([r for r in self.self_improvement_requests.values() if r.status == "COMPLETED"]),
+                "requests_by_component": {},
+                "recent_improvements": [],
+                "improvement_metrics": {},
+                "last_updated": datetime.now().isoformat()
+            }
+            
+            # Group by component
+            for request in self.self_improvement_requests.values():
+                component = request.component.value
+                if component not in status_data["requests_by_component"]:
+                    status_data["requests_by_component"][component] = 0
+                status_data["requests_by_component"][component] += 1
+            
+            # Recent improvements
+            recent = sorted(
+                self.self_improvement_requests.values(),
+                key=lambda r: r.created_at,
+                reverse=True
+            )[:10]
+            
+            status_data["recent_improvements"] = [
+                {
+                    "id": r.id,
+                    "title": r.title,
+                    "component": r.component.value,
+                    "status": r.status,
+                    "priority": r.priority.value,
+                    "strategic_value": r.strategic_value,
+                    "created_at": r.created_at.isoformat()
+                }
+                for r in recent
+            ]
+            
+            # Improvement metrics
+            status_data["improvement_metrics"] = {
+                "avg_strategic_value": sum(r.strategic_value for r in self.self_improvement_requests.values()) / len(self.self_improvement_requests) if self.self_improvement_requests else 0,
+                "avg_risk_assessment": sum(r.risk_assessment for r in self.self_improvement_requests.values()) / len(self.self_improvement_requests) if self.self_improvement_requests else 0,
+                "total_estimated_effort": sum(r.estimated_effort for r in self.self_improvement_requests.values()),
+                "success_rate": len([r for r in self.self_improvement_requests.values() if r.status == "COMPLETED"]) / len(self.self_improvement_requests) if self.self_improvement_requests else 0
+            }
+            
+            return status_data
+            
+        except Exception as e:
+            logger.error(f"Error getting self-improvement status: {str(e)}")
+            return {"error": str(e)}
+    
+    async def get_enhanced_dashboard_data(self) -> Dict[str, Any]:
+        """Get enhanced dashboard data with bot monitoring and self-improvement."""
+        try:
+            # Get base dashboard data
+            base_dashboard = await self.get_ceo_dashboard()
+            
+            # Add bot monitoring data
+            bot_dashboard = await self.get_bot_monitoring_dashboard()
+            
+            # Add self-improvement data
+            improvement_status = await self.get_self_improvement_status()
+            
+            # Combine all data
+            enhanced_dashboard = {
+                **base_dashboard,
+                "bot_monitoring": bot_dashboard,
+                "self_improvement": improvement_status,
+                "system_capabilities": {
+                    "recursive_enhancement": self.recursive_enhancement_enabled,
+                    "bot_monitoring": True,
+                    "executive_intelligence": True,
+                    "cross_team_coordination": True
+                },
+                "meta_insights": await self._generate_meta_insights()
+            }
+            
+            return enhanced_dashboard
+            
+        except Exception as e:
+            logger.error(f"Error getting enhanced dashboard data: {str(e)}")
+            return {"error": str(e)}
+    
+    def _calculate_bot_health_score(self, bot_data: Dict[str, Any]) -> float:
+        """Calculate overall health score for a bot."""
+        try:
+            availability = bot_data.get('availability', 0.0)
+            success_rate = bot_data.get('success_rate', 0.0)
+            status = bot_data.get('status', 'OFFLINE')
+            
+            # Base score from availability and success rate
+            base_score = (availability * 0.4) + (success_rate * 0.4)
+            
+            # Status modifier
+            status_modifier = {
+                'ACTIVE': 0.2,
+                'BUSY': 0.1,
+                'OFFLINE': -0.2,
+                'MAINTENANCE': 0.0
+            }.get(status, 0.0)
+            
+            health_score = min(1.0, max(0.0, base_score + status_modifier))
+            
+            return health_score
+            
+        except Exception as e:
+            logger.error(f"Error calculating bot health score: {str(e)}")
+            return 0.5
+    
+    async def _check_bot_performance_alerts(self, bot_data: BotMonitoringData):
+        """Check for bot performance issues and generate alerts."""
+        try:
+            alerts = []
+            
+            # Low availability alert
+            if bot_data.availability < 0.5:
+                alerts.append(f"🟡 Bot {bot_data.name} has low availability: {bot_data.availability:.1%}")
+            
+            # Low success rate alert
+            if bot_data.success_rate < 0.7:
+                alerts.append(f"🔴 Bot {bot_data.name} has low success rate: {bot_data.success_rate:.1%}")
+            
+            # Offline bot alert
+            if bot_data.status == "OFFLINE":
+                alerts.append(f"⚠️ Bot {bot_data.name} is offline")
+            
+            # Overloaded bot alert
+            if len(bot_data.current_tasks) > 5:
+                alerts.append(f"📊 Bot {bot_data.name} is overloaded with {len(bot_data.current_tasks)} tasks")
+            
+            # Log alerts (could escalate to CEO decisions if critical)
+            for alert in alerts:
+                logger.warning(alert)
+                
+        except Exception as e:
+            logger.error(f"Error checking bot performance alerts: {str(e)}")
+    
+    def _assess_improvement_strategic_value(self, component: SystemComponent, description: str) -> float:
+        """Assess strategic value of an improvement request."""
+        try:
+            # Base value by component
+            component_values = {
+                SystemComponent.CEO_PORTAL: 0.9,
+                SystemComponent.DECISION_ENGINE: 0.8,
+                SystemComponent.COORDINATOR: 0.7,
+                SystemComponent.UI_PORTAL: 0.6,
+                SystemComponent.SDLC_TEAM: 0.8,
+                SystemComponent.BOT_ALGORITHMS: 0.7,
+                SystemComponent.MONITORING_SYSTEM: 0.6,
+                SystemComponent.API_ENDPOINTS: 0.5
+            }
+            
+            base_value = component_values.get(component, 0.5)
+            
+            # Keywords that increase strategic value
+            high_value_keywords = [
+                "efficiency", "performance", "automation", "intelligence", 
+                "decision", "strategic", "optimization", "scalability"
+            ]
+            
+            keyword_bonus = sum(0.05 for keyword in high_value_keywords if keyword.lower() in description.lower())
+            
+            return min(1.0, base_value + keyword_bonus)
+            
+        except Exception as e:
+            logger.error(f"Error assessing strategic value: {str(e)}")
+            return 0.5
+    
+    def _assess_improvement_risk(self, component: SystemComponent, description: str) -> float:
+        """Assess risk level of an improvement request."""
+        try:
+            # Base risk by component
+            component_risks = {
+                SystemComponent.CEO_PORTAL: 0.3,
+                SystemComponent.DECISION_ENGINE: 0.7,
+                SystemComponent.COORDINATOR: 0.4,
+                SystemComponent.UI_PORTAL: 0.2,
+                SystemComponent.SDLC_TEAM: 0.5,
+                SystemComponent.BOT_ALGORITHMS: 0.6,
+                SystemComponent.MONITORING_SYSTEM: 0.3,
+                SystemComponent.API_ENDPOINTS: 0.4
+            }
+            
+            base_risk = component_risks.get(component, 0.5)
+            
+            # Keywords that increase risk
+            high_risk_keywords = [
+                "core", "critical", "algorithm", "engine", "database",
+                "security", "authentication", "data", "model"
+            ]
+            
+            risk_penalty = sum(0.1 for keyword in high_risk_keywords if keyword.lower() in description.lower())
+            
+            return min(1.0, base_risk + risk_penalty)
+            
+        except Exception as e:
+            logger.error(f"Error assessing risk: {str(e)}")
+            return 0.5
+    
+    def _estimate_improvement_effort(self, description: str) -> int:
+        """Estimate effort required for improvement in hours."""
+        try:
+            # Base effort estimation
+            word_count = len(description.split())
+            base_effort = max(4, min(40, word_count // 2))  # 4-40 hours based on complexity
+            
+            # Complexity keywords
+            complexity_keywords = {
+                "simple": -0.5,
+                "quick": -0.5,
+                "minor": -0.5,
+                "complex": 1.5,
+                "major": 2.0,
+                "overhaul": 3.0,
+                "redesign": 2.5,
+                "integration": 1.5
+            }
+            
+            complexity_multiplier = 1.0
+            for keyword, multiplier in complexity_keywords.items():
+                if keyword.lower() in description.lower():
+                    complexity_multiplier += multiplier
+            
+            estimated_effort = int(base_effort * complexity_multiplier)
+            return max(2, min(80, estimated_effort))  # 2-80 hours range
+            
+        except Exception as e:
+            logger.error(f"Error estimating effort: {str(e)}")
+            return 8
+    
+    async def _generate_system_alerts(self) -> List[Dict[str, Any]]:
+        """Generate system-wide alerts."""
+        try:
+            alerts = []
+            
+            # Bot performance alerts
+            if self.bot_monitoring_data:
+                offline_bots = [b for b in self.bot_monitoring_data.values() if b.status == "OFFLINE"]
+                if offline_bots:
+                    alerts.append({
+                        "type": "WARNING",
+                        "title": f"{len(offline_bots)} Bots Offline",
+                        "description": f"Bots offline: {', '.join([b.name for b in offline_bots[:3]])}",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                
+                low_performance_bots = [b for b in self.bot_monitoring_data.values() if b.health_score < 0.6]
+                if low_performance_bots:
+                    alerts.append({
+                        "type": "PERFORMANCE",
+                        "title": f"{len(low_performance_bots)} Bots Underperforming",
+                        "description": f"Bots need attention: {', '.join([b.name for b in low_performance_bots[:3]])}",
+                        "timestamp": datetime.now().isoformat()
+                    })
+            
+            # System health alerts
+            if self.system_health_score < 0.7:
+                alerts.append({
+                    "type": "CRITICAL",
+                    "title": "System Health Below Threshold",
+                    "description": f"System health: {self.system_health_score:.1%}",
+                    "timestamp": datetime.now().isoformat()
+                })
+            
+            # Self-improvement opportunities
+            pending_improvements = len([r for r in self.self_improvement_requests.values() if r.status == "PENDING"])
+            if pending_improvements > 5:
+                alerts.append({
+                    "type": "INFO",
+                    "title": f"{pending_improvements} Improvement Requests Pending",
+                    "description": "Multiple self-improvement opportunities await CEO review",
+                    "timestamp": datetime.now().isoformat()
+                })
+            
+            return alerts
+            
+        except Exception as e:
+            logger.error(f"Error generating system alerts: {str(e)}")
+            return []
+    
+    def _calculate_system_efficiency(self) -> float:
+        """Calculate overall system efficiency."""
+        try:
+            if not self.bot_monitoring_data:
+                return 0.5
+            
+            # Average bot performance
+            avg_availability = sum(b.availability for b in self.bot_monitoring_data.values()) / len(self.bot_monitoring_data)
+            avg_success_rate = sum(b.success_rate for b in self.bot_monitoring_data.values()) / len(self.bot_monitoring_data)
+            avg_health = sum(b.health_score for b in self.bot_monitoring_data.values()) / len(self.bot_monitoring_data)
+            
+            # System efficiency score
+            efficiency = (avg_availability * 0.3) + (avg_success_rate * 0.4) + (avg_health * 0.3)
+            
+            return min(1.0, max(0.0, efficiency))
+            
+        except Exception as e:
+            logger.error(f"Error calculating system efficiency: {str(e)}")
+            return 0.5
+    
+    async def _generate_meta_insights(self) -> List[str]:
+        """Generate meta-insights about Bot Builder's self-improvement capabilities."""
+        try:
+            insights = []
+            
+            # Self-improvement insights
+            if self.self_improvement_requests:
+                completed_improvements = len([r for r in self.self_improvement_requests.values() if r.status == "COMPLETED"])
+                total_improvements = len(self.self_improvement_requests)
+                
+                if completed_improvements > 0:
+                    insights.append(f"🧠 Bot Builder has successfully self-improved {completed_improvements} times")
+                
+                if total_improvements > completed_improvements:
+                    insights.append(f"🚀 {total_improvements - completed_improvements} self-improvement initiatives in progress")
+            
+            # Bot monitoring insights
+            if self.bot_monitoring_data:
+                total_bots = len(self.bot_monitoring_data)
+                active_bots = len([b for b in self.bot_monitoring_data.values() if b.status == "ACTIVE"])
+                
+                insights.append(f"🤖 Managing {total_bots} autonomous bots with {active_bots} currently active")
+                
+                if active_bots > 0:
+                    avg_efficiency = self._calculate_system_efficiency()
+                    insights.append(f"⚡ System efficiency: {avg_efficiency:.1%}")
+            
+            # Recursive enhancement insight
+            if self.recursive_enhancement_enabled:
+                insights.append("🔄 Recursive self-enhancement enabled - Bot Builder can evolve itself")
+            
+            # Strategic insights
+            pending_decisions = len(self.pending_decisions)
+            if pending_decisions == 0:
+                insights.append("✅ All decisions processed - autonomous operations running smoothly")
+            elif pending_decisions < 3:
+                insights.append(f"📋 {pending_decisions} strategic decisions awaiting CEO review")
+            else:
+                insights.append(f"🚨 {pending_decisions} decisions pending - CEO attention required")
+            
+            return insights if insights else ["🎯 System operating within normal parameters"]
+            
+        except Exception as e:
+            logger.error(f"Error generating meta insights: {str(e)}")
+            return ["❌ Error generating insights"]
     
     async def _initialize_team_monitoring(self):
         """Initialize team monitoring systems."""

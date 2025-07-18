@@ -1,5 +1,5 @@
 """
-SDLC Bot Team - Software Development Lifecycle Autonomous Bot Organization
+SDLC Bot Team - Industry-Agnostic Software Development Lifecycle Autonomous Bot Organization
 """
 
 import asyncio
@@ -19,7 +19,7 @@ from core.ceo_portal import CEOPortal, DecisionCategory, Priority
 logger = logging.getLogger(__name__)
 
 class BotRole(Enum):
-    """SDLC Bot roles."""
+    """SDLC Bot roles - completely industry agnostic."""
     # Architecture Team
     CHIEF_ARCHITECT = "CHIEF_ARCHITECT"
     SOLUTION_ARCHITECT = "SOLUTION_ARCHITECT"
@@ -72,7 +72,7 @@ class TaskPriority(Enum):
 
 @dataclass
 class SDLCTask:
-    """A task in the SDLC workflow."""
+    """A task in the SDLC workflow - industry agnostic."""
     id: str
     title: str
     description: str
@@ -93,10 +93,11 @@ class SDLCTask:
     acceptance_criteria: List[str]
     progress_percentage: int
     context: Dict[str, Any]
+    # Industry-specific context can be added via context field
 
 @dataclass
 class SDLCBot:
-    """An autonomous SDLC bot."""
+    """An autonomous SDLC bot - completely industry agnostic."""
     id: str
     name: str
     role: BotRole
@@ -111,10 +112,11 @@ class SDLCBot:
     status: str  # "ACTIVE", "BUSY", "OFFLINE", "MAINTENANCE"
     performance_metrics: Dict[str, Any]
     learning_progress: Dict[str, float]
+    # Industry context can be added via performance_metrics and learning_progress
 
 @dataclass
 class SDLCTeam:
-    """An SDLC team with lead and members."""
+    """An SDLC team with lead and members - industry agnostic."""
     name: str
     team_type: str
     lead_bot: str
@@ -125,9 +127,10 @@ class SDLCTeam:
     team_metrics: Dict[str, Any]
     objectives: List[str]
     last_standup: Optional[datetime]
+    # Team objectives and metrics can be customized per industry
 
 class GitHubIntegration:
-    """GitHub integration for autonomous progress documentation."""
+    """GitHub integration for autonomous progress documentation - industry agnostic."""
     
     def __init__(self, repo_owner: str, repo_name: str, token: str):
         """Initialize GitHub integration."""
@@ -234,7 +237,16 @@ class GitHubIntegration:
 
 class SDLCBotTeam:
     """
-    Autonomous SDLC Bot Team Management System.
+    Industry-Agnostic SDLC Bot Team Management System.
+    
+    This system is completely industry-neutral and can be reused across:
+    - FinTech (Hedge Funds, Banking, Insurance)
+    - E-commerce (Retail, Marketplace, Logistics)
+    - Healthcare (Medical Systems, Telehealth, Research)
+    - Manufacturing (IoT, Automation, Supply Chain)
+    - Entertainment (Gaming, Media, Streaming)
+    - Education (EdTech, Learning Management, Research)
+    - Any other industry requiring software development
     
     Features:
     - Self-organizing development teams
@@ -242,11 +254,13 @@ class SDLCBotTeam:
     - Cross-team communication protocols
     - Quality gates and approval workflows
     - Autonomous progress documentation
+    - Industry-agnostic architecture
     """
     
-    def __init__(self, ceo_portal: CEOPortal):
+    def __init__(self, ceo_portal: CEOPortal, project_context: Dict[str, Any] = None):
         """Initialize the SDLC Bot Team system."""
         self.ceo_portal = ceo_portal
+        self.project_context = project_context or {}  # Industry-specific context
         
         # Bot and team management
         self.bots: Dict[str, SDLCBot] = {}
@@ -267,7 +281,7 @@ class SDLCBotTeam:
         self.standup_interval = timedelta(days=1)
         self.sprint_duration = timedelta(weeks=2)
         
-        # Team hierarchies
+        # Team hierarchies - industry agnostic
         self.team_hierarchies = {
             "Architecture": {
                 "lead": BotRole.CHIEF_ARCHITECT,
@@ -291,12 +305,17 @@ class SDLCBotTeam:
             }
         }
         
-        logger.info("SDLC Bot Team system initialized")
+        logger.info("Industry-agnostic SDLC Bot Team system initialized")
+    
+    def set_project_context(self, context: Dict[str, Any]):
+        """Set project-specific context for industry customization."""
+        self.project_context = context
+        logger.info(f"Project context updated: {context.get('industry', 'Generic')} industry")
     
     async def initialize(self) -> bool:
         """Initialize the SDLC Bot Team system."""
         try:
-            logger.info("Initializing SDLC Bot Team system...")
+            logger.info("Initializing industry-agnostic SDLC Bot Team system...")
             
             # Create initial bot teams
             await self._create_initial_teams()
@@ -319,7 +338,7 @@ class SDLCBotTeam:
             
             bot_id = str(uuid.uuid4())
             
-            # Default skills based on role
+            # Default skills based on role - industry agnostic
             skills = await self._get_default_skills_for_role(role)
             
             bot = SDLCBot(
@@ -356,16 +375,23 @@ class SDLCBotTeam:
             return ""
     
     async def assign_task(self, title: str, description: str, task_type: str, priority: TaskPriority, 
-                         estimated_hours: int = 8, due_date: datetime = None) -> str:
-        """Assign a task to the most suitable bot."""
+                         estimated_hours: int = 8, due_date: datetime = None, 
+                         industry_context: Dict[str, Any] = None) -> str:
+        """Assign a task to the most suitable bot - industry agnostic."""
         try:
             task_id = str(uuid.uuid4())
             
             if due_date is None:
                 due_date = datetime.now() + timedelta(days=7)
             
+            if industry_context is None:
+                industry_context = {}
+            
             # Find best bot for the task
             assigned_bot, assigned_team = await self._find_best_bot_for_task(task_type, priority)
+            
+            # Merge project context with industry context
+            full_context = {**self.project_context, **industry_context}
             
             task = SDLCTask(
                 id=task_id,
@@ -387,7 +413,7 @@ class SDLCBotTeam:
                 github_pr_url=None,
                 acceptance_criteria=[],
                 progress_percentage=0,
-                context={}
+                context=full_context
             )
             
             self.tasks[task_id] = task
@@ -398,10 +424,16 @@ class SDLCBotTeam:
             
             # Create GitHub issue if integration is available
             if self.github:
+                # Create industry-neutral GitHub issue
+                github_description = f"{description}\n\n**Assignment Details:**\n- Assigned to: {assigned_bot}\n- Priority: {priority.value}\n- Team: {assigned_team}"
+                
+                if full_context:
+                    github_description += f"\n- Context: {full_context.get('project_type', 'Software Development')}"
+                
                 github_url = await self.github.create_issue(
                     title=title,
-                    description=f"{description}\n\n**Assigned to:** {assigned_bot}\n**Priority:** {priority.value}",
-                    labels=[task_type.lower(), priority.value.lower()]
+                    description=github_description,
+                    labels=[task_type.lower(), priority.value.lower(), "sdlc-task"]
                 )
                 task.github_issue_url = github_url
             
@@ -461,17 +493,22 @@ class SDLCBotTeam:
     async def request_ceo_approval(self, title: str, description: str, financial_impact: float = 0,
                                   risk_level: float = 0, strategic_alignment: float = 0,
                                   requesting_bot: str = "SDLC_SYSTEM") -> Tuple[bool, str]:
-        """Request CEO approval for a decision."""
+        """Request CEO approval for a decision - industry agnostic."""
         try:
+            # Add project context to the approval request
+            context_info = ""
+            if self.project_context:
+                context_info = f"\n\n**Project Context:**\n- Industry: {self.project_context.get('industry', 'Software Development')}\n- Project Type: {self.project_context.get('project_type', 'General Application')}"
+            
             approved, message, priority = await self.ceo_portal.submit_decision_for_approval(
                 requesting_bot=requesting_bot,
                 title=title,
-                description=description,
+                description=description + context_info,
                 category=DecisionCategory.TECHNOLOGY,
                 financial_impact=financial_impact,
                 risk_level=risk_level,
                 strategic_alignment=strategic_alignment,
-                context={"team": "SDLC", "system": "sdlc_bot_team"}
+                context={"team": "SDLC", "system": "sdlc_bot_team", "project_context": self.project_context}
             )
             
             logger.info(f"CEO approval request: {title} - {message}")
@@ -482,7 +519,7 @@ class SDLCBotTeam:
             return False, f"Error requesting approval: {str(e)}"
     
     async def conduct_daily_standup(self, team_name: str) -> Dict[str, Any]:
-        """Conduct automated daily standup for a team."""
+        """Conduct automated daily standup for a team - industry agnostic."""
         try:
             if team_name not in self.teams:
                 return {"error": "Team not found"}
@@ -494,7 +531,8 @@ class SDLCBotTeam:
                 "participants": [],
                 "completed_yesterday": [],
                 "planned_today": [],
-                "blockers": []
+                "blockers": [],
+                "project_context": self.project_context.get('project_type', 'Software Development')
             }
             
             # Get updates from all team members
@@ -552,7 +590,7 @@ class SDLCBotTeam:
             return {"error": str(e)}
     
     async def get_team_status(self, team_name: str) -> Dict[str, Any]:
-        """Get comprehensive team status."""
+        """Get comprehensive team status - industry agnostic."""
         try:
             if team_name not in self.teams:
                 return {"error": "Team not found"}
@@ -598,7 +636,8 @@ class SDLCBotTeam:
                     "success_rate": await self._calculate_team_success_rate(team_name)
                 },
                 "recent_achievements": recent_achievements[:5],  # Top 5
-                "pending_ceo_items": 0  # Would be calculated from CEO portal
+                "pending_ceo_items": 0,  # Would be calculated from CEO portal
+                "project_context": self.project_context
             }
             
             # Update CEO portal with team status
@@ -611,7 +650,7 @@ class SDLCBotTeam:
             return {"error": str(e)}
     
     async def _create_initial_teams(self):
-        """Create initial SDLC teams and bots."""
+        """Create initial SDLC teams and bots - industry agnostic."""
         try:
             for team_name, hierarchy in self.team_hierarchies.items():
                 # Create team
@@ -738,9 +777,9 @@ class SDLCBotTeam:
                 logger.error(f"Error in autonomous progress tracking: {str(e)}")
     
     async def _find_best_bot_for_task(self, task_type: str, priority: TaskPriority) -> Tuple[str, str]:
-        """Find the best bot for a specific task."""
+        """Find the best bot for a specific task - industry agnostic."""
         try:
-            # Map task types to preferred roles
+            # Map task types to preferred roles - completely generic
             task_role_mapping = {
                 "FEATURE": [BotRole.FULL_STACK_DEV, BotRole.SENIOR_DEV, BotRole.BACKEND_DEV],
                 "BUG": [BotRole.SENIOR_DEV, BotRole.FULL_STACK_DEV],
@@ -750,7 +789,12 @@ class SDLCBotTeam:
                 "ARCHITECTURE": [BotRole.CHIEF_ARCHITECT, BotRole.SOLUTION_ARCHITECT],
                 "SECURITY": [BotRole.SECURITY_ARCHITECT, BotRole.SECURITY_QA],
                 "DATABASE": [BotRole.DBA_LEAD, BotRole.SENIOR_DBA],
-                "TESTING": [BotRole.QA_DIRECTOR, BotRole.UI_QA, BotRole.UX_QA]
+                "TESTING": [BotRole.QA_DIRECTOR, BotRole.UI_QA, BotRole.UX_QA],
+                "UI": [BotRole.FRONTEND_DEV, BotRole.UI_QA, BotRole.UX_QA],
+                "API": [BotRole.BACKEND_DEV, BotRole.SENIOR_DEV],
+                "PERFORMANCE": [BotRole.PERFORMANCE_QA, BotRole.SENIOR_DEV],
+                "DATA": [BotRole.DATA_ENGINEER, BotRole.DATA_ARCHITECT],
+                "INTEGRATION": [BotRole.SOLUTION_ARCHITECT, BotRole.FULL_STACK_DEV]
             }
             
             preferred_roles = task_role_mapping.get(task_type, [BotRole.FULL_STACK_DEV])
@@ -791,73 +835,73 @@ class SDLCBotTeam:
             return "", ""
     
     async def _get_default_skills_for_role(self, role: BotRole) -> Dict[str, float]:
-        """Get default skills for a bot role."""
+        """Get default skills for a bot role - industry agnostic."""
         skill_mappings = {
             # Architecture roles
-            BotRole.CHIEF_ARCHITECT: {"system_design": 0.9, "technology_strategy": 0.9, "leadership": 0.8},
-            BotRole.SOLUTION_ARCHITECT: {"solution_design": 0.9, "integration": 0.8, "documentation": 0.7},
-            BotRole.SECURITY_ARCHITECT: {"security_design": 0.9, "risk_assessment": 0.8, "compliance": 0.8},
-            BotRole.DATA_ARCHITECT: {"data_modeling": 0.9, "database_design": 0.9, "analytics": 0.7},
+            BotRole.CHIEF_ARCHITECT: {"system_design": 0.9, "technology_strategy": 0.9, "leadership": 0.8, "planning": 0.8},
+            BotRole.SOLUTION_ARCHITECT: {"solution_design": 0.9, "integration": 0.8, "documentation": 0.7, "communication": 0.8},
+            BotRole.SECURITY_ARCHITECT: {"security_design": 0.9, "risk_assessment": 0.8, "compliance": 0.8, "threat_modeling": 0.9},
+            BotRole.DATA_ARCHITECT: {"data_modeling": 0.9, "database_design": 0.9, "analytics": 0.7, "data_governance": 0.8},
             
             # Development roles
-            BotRole.DEV_LEAD: {"leadership": 0.8, "code_review": 0.9, "mentoring": 0.8, "architecture": 0.7},
-            BotRole.SENIOR_DEV: {"programming": 0.9, "debugging": 0.9, "optimization": 0.8, "mentoring": 0.6},
-            BotRole.FULL_STACK_DEV: {"frontend": 0.8, "backend": 0.8, "database": 0.7, "integration": 0.7},
-            BotRole.BACKEND_DEV: {"backend": 0.9, "api_design": 0.8, "database": 0.8, "performance": 0.7},
-            BotRole.FRONTEND_DEV: {"frontend": 0.9, "ui_ux": 0.8, "javascript": 0.9, "responsive_design": 0.8},
+            BotRole.DEV_LEAD: {"leadership": 0.8, "code_review": 0.9, "mentoring": 0.8, "architecture": 0.7, "project_management": 0.7},
+            BotRole.SENIOR_DEV: {"programming": 0.9, "debugging": 0.9, "optimization": 0.8, "mentoring": 0.6, "code_quality": 0.9},
+            BotRole.FULL_STACK_DEV: {"frontend": 0.8, "backend": 0.8, "database": 0.7, "integration": 0.7, "versatility": 0.9},
+            BotRole.BACKEND_DEV: {"backend": 0.9, "api_design": 0.8, "database": 0.8, "performance": 0.7, "scalability": 0.8},
+            BotRole.FRONTEND_DEV: {"frontend": 0.9, "ui_ux": 0.8, "javascript": 0.9, "responsive_design": 0.8, "user_experience": 0.7},
             
             # Quality roles
-            BotRole.QA_DIRECTOR: {"test_strategy": 0.9, "quality_management": 0.9, "leadership": 0.8},
-            BotRole.UI_QA: {"ui_testing": 0.9, "automation": 0.8, "usability": 0.7},
-            BotRole.UX_QA: {"ux_testing": 0.9, "user_research": 0.8, "accessibility": 0.8},
-            BotRole.PERFORMANCE_QA: {"performance_testing": 0.9, "load_testing": 0.8, "optimization": 0.7},
-            BotRole.SECURITY_QA: {"security_testing": 0.9, "vulnerability_assessment": 0.8, "penetration_testing": 0.7},
+            BotRole.QA_DIRECTOR: {"test_strategy": 0.9, "quality_management": 0.9, "leadership": 0.8, "process_improvement": 0.8},
+            BotRole.UI_QA: {"ui_testing": 0.9, "automation": 0.8, "usability": 0.7, "visual_validation": 0.9},
+            BotRole.UX_QA: {"ux_testing": 0.9, "user_research": 0.8, "accessibility": 0.8, "user_journey": 0.9},
+            BotRole.PERFORMANCE_QA: {"performance_testing": 0.9, "load_testing": 0.8, "optimization": 0.7, "monitoring": 0.8},
+            BotRole.SECURITY_QA: {"security_testing": 0.9, "vulnerability_assessment": 0.8, "penetration_testing": 0.7, "compliance_testing": 0.8},
             
             # Data roles
-            BotRole.DBA_LEAD: {"database_administration": 0.9, "performance_tuning": 0.8, "leadership": 0.7},
-            BotRole.SENIOR_DBA: {"database_administration": 0.9, "backup_recovery": 0.8, "monitoring": 0.8},
-            BotRole.DATA_ENGINEER: {"etl_development": 0.9, "data_pipelines": 0.8, "big_data": 0.7},
-            BotRole.ANALYTICS_DBA: {"analytics": 0.9, "reporting": 0.8, "data_visualization": 0.7},
+            BotRole.DBA_LEAD: {"database_administration": 0.9, "performance_tuning": 0.8, "leadership": 0.7, "backup_recovery": 0.8},
+            BotRole.SENIOR_DBA: {"database_administration": 0.9, "backup_recovery": 0.8, "monitoring": 0.8, "optimization": 0.7},
+            BotRole.DATA_ENGINEER: {"etl_development": 0.9, "data_pipelines": 0.8, "big_data": 0.7, "data_processing": 0.9},
+            BotRole.ANALYTICS_DBA: {"analytics": 0.9, "reporting": 0.8, "data_visualization": 0.7, "business_intelligence": 0.8},
             
             # Management roles
-            BotRole.TECHNICAL_PM: {"project_management": 0.9, "coordination": 0.8, "communication": 0.9},
-            BotRole.SCRUM_MASTER: {"scrum": 0.9, "facilitation": 0.8, "coaching": 0.8},
-            BotRole.PRODUCT_OWNER: {"product_management": 0.9, "requirements": 0.8, "stakeholder_management": 0.8},
-            BotRole.BUSINESS_ANALYST: {"business_analysis": 0.9, "requirements_gathering": 0.8, "documentation": 0.8},
-            BotRole.TECHNICAL_WRITER: {"technical_writing": 0.9, "documentation": 0.9, "communication": 0.8}
+            BotRole.TECHNICAL_PM: {"project_management": 0.9, "coordination": 0.8, "communication": 0.9, "planning": 0.8},
+            BotRole.SCRUM_MASTER: {"scrum": 0.9, "facilitation": 0.8, "coaching": 0.8, "process_management": 0.8},
+            BotRole.PRODUCT_OWNER: {"product_management": 0.9, "requirements": 0.8, "stakeholder_management": 0.8, "prioritization": 0.9},
+            BotRole.BUSINESS_ANALYST: {"business_analysis": 0.9, "requirements_gathering": 0.8, "documentation": 0.8, "process_analysis": 0.8},
+            BotRole.TECHNICAL_WRITER: {"technical_writing": 0.9, "documentation": 0.9, "communication": 0.8, "content_creation": 0.9}
         }
         
-        return skill_mappings.get(role, {"general": 0.7})
+        return skill_mappings.get(role, {"general_software_development": 0.7, "problem_solving": 0.8, "communication": 0.7})
     
     async def _get_specializations_for_role(self, role: BotRole) -> List[str]:
-        """Get specializations for a bot role."""
+        """Get specializations for a bot role - industry agnostic."""
         specialization_mappings = {
-            BotRole.CHIEF_ARCHITECT: ["Enterprise Architecture", "Cloud Architecture", "Microservices"],
-            BotRole.SOLUTION_ARCHITECT: ["System Integration", "API Design", "Cloud Solutions"],
-            BotRole.SECURITY_ARCHITECT: ["Zero Trust", "DevSecOps", "Compliance"],
-            BotRole.DATA_ARCHITECT: ["Data Lakes", "Analytics", "ML Pipelines"],
-            BotRole.DEV_LEAD: ["Team Leadership", "Code Quality", "Technical Strategy"],
-            BotRole.SENIOR_DEV: ["Python", "JavaScript", "System Design"],
-            BotRole.FULL_STACK_DEV: ["React", "Node.js", "PostgreSQL"],
-            BotRole.BACKEND_DEV: ["API Development", "Database Design", "Performance"],
-            BotRole.FRONTEND_DEV: ["React", "Vue.js", "CSS/SCSS"],
-            BotRole.QA_DIRECTOR: ["Test Automation", "Quality Strategy", "CI/CD"],
-            BotRole.UI_QA: ["Selenium", "Cypress", "Visual Testing"],
-            BotRole.UX_QA: ["User Testing", "Accessibility", "Usability"],
-            BotRole.PERFORMANCE_QA: ["JMeter", "Load Testing", "APM"],
-            BotRole.SECURITY_QA: ["OWASP", "Penetration Testing", "Security Auditing"],
-            BotRole.DBA_LEAD: ["PostgreSQL", "Performance Tuning", "High Availability"],
-            BotRole.SENIOR_DBA: ["Database Optimization", "Backup Strategies", "Monitoring"],
-            BotRole.DATA_ENGINEER: ["Apache Spark", "Kafka", "Data Pipelines"],
-            BotRole.ANALYTICS_DBA: ["Data Warehousing", "BI Tools", "Analytics"],
-            BotRole.TECHNICAL_PM: ["Agile", "Stakeholder Management", "Risk Management"],
-            BotRole.SCRUM_MASTER: ["Scrum", "Kanban", "Team Facilitation"],
-            BotRole.PRODUCT_OWNER: ["Product Strategy", "User Stories", "Roadmapping"],
-            BotRole.BUSINESS_ANALYST: ["Requirements Engineering", "Process Analysis", "Stakeholder Communication"],
-            BotRole.TECHNICAL_WRITER: ["API Documentation", "User Guides", "Technical Communication"]
+            BotRole.CHIEF_ARCHITECT: ["Enterprise Architecture", "Cloud Architecture", "Microservices", "System Integration"],
+            BotRole.SOLUTION_ARCHITECT: ["System Integration", "API Design", "Cloud Solutions", "Distributed Systems"],
+            BotRole.SECURITY_ARCHITECT: ["Zero Trust", "DevSecOps", "Compliance", "Threat Modeling"],
+            BotRole.DATA_ARCHITECT: ["Data Lakes", "Analytics", "Data Pipelines", "Data Governance"],
+            BotRole.DEV_LEAD: ["Team Leadership", "Code Quality", "Technical Strategy", "Agile Methodologies"],
+            BotRole.SENIOR_DEV: ["Python", "JavaScript", "System Design", "Code Optimization"],
+            BotRole.FULL_STACK_DEV: ["React", "Node.js", "PostgreSQL", "REST APIs"],
+            BotRole.BACKEND_DEV: ["API Development", "Database Design", "Performance Optimization", "Microservices"],
+            BotRole.FRONTEND_DEV: ["React", "Vue.js", "CSS/SCSS", "Responsive Design"],
+            BotRole.QA_DIRECTOR: ["Test Automation", "Quality Strategy", "CI/CD", "Test Management"],
+            BotRole.UI_QA: ["Selenium", "Cypress", "Visual Testing", "User Interface Testing"],
+            BotRole.UX_QA: ["User Testing", "Accessibility", "Usability", "User Journey Testing"],
+            BotRole.PERFORMANCE_QA: ["JMeter", "Load Testing", "APM", "Performance Monitoring"],
+            BotRole.SECURITY_QA: ["OWASP", "Penetration Testing", "Security Auditing", "Vulnerability Assessment"],
+            BotRole.DBA_LEAD: ["PostgreSQL", "Performance Tuning", "High Availability", "Database Strategy"],
+            BotRole.SENIOR_DBA: ["Database Optimization", "Backup Strategies", "Monitoring", "Query Optimization"],
+            BotRole.DATA_ENGINEER: ["Apache Spark", "Kafka", "Data Pipelines", "ETL Processes"],
+            BotRole.ANALYTICS_DBA: ["Data Warehousing", "BI Tools", "Analytics", "Data Visualization"],
+            BotRole.TECHNICAL_PM: ["Agile", "Stakeholder Management", "Risk Management", "Project Planning"],
+            BotRole.SCRUM_MASTER: ["Scrum", "Kanban", "Team Facilitation", "Process Improvement"],
+            BotRole.PRODUCT_OWNER: ["Product Strategy", "User Stories", "Roadmapping", "Requirement Analysis"],
+            BotRole.BUSINESS_ANALYST: ["Requirements Engineering", "Process Analysis", "Stakeholder Communication", "Business Modeling"],
+            BotRole.TECHNICAL_WRITER: ["API Documentation", "User Guides", "Technical Communication", "Content Strategy"]
         }
         
-        return specialization_mappings.get(role, ["General"])
+        return specialization_mappings.get(role, ["General Software Development", "Problem Solving", "Technical Communication"])
     
     async def _calculate_avg_task_time(self, team_name: str) -> float:
         """Calculate average task completion time for a team."""
@@ -893,10 +937,17 @@ class SDLCBotTeam:
             return 0.5
     
     async def _create_standup_documentation(self, standup_summary: Dict[str, Any]) -> str:
-        """Create documentation for standup meeting."""
+        """Create documentation for standup meeting - industry agnostic."""
         try:
+            project_info = ""
+            if self.project_context:
+                project_info = f"**Project:** {self.project_context.get('project_type', 'Software Development')}\n"
+                if self.project_context.get('industry'):
+                    project_info += f"**Industry:** {self.project_context['industry']}\n"
+            
             doc = f"""# Daily Standup - {standup_summary['team']}
 **Date:** {standup_summary['date']}
+{project_info}
 
 ## Team Updates
 

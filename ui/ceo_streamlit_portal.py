@@ -1,649 +1,814 @@
 """
-CEO Streamlit Portal - Executive Command Center
+CEO Streamlit Portal - Enhanced with Bot Visualization and Self-Improvement
 """
 
 import streamlit as st
 import asyncio
-import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import numpy as np
+import pandas as pd
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-import json
-
-# Import our core modules
-from core.ceo_portal import CEOPortal, DecisionCategory, Priority, CEODecision
-from core.sdlc_bot_team import SDLCBotTeam, TaskPriority, TaskStatus, BotRole
-from core.ai_engine import AIEngine
-from data.real_time_market_data import RealTimeMarketDataProvider
+import uuid
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title="CEO Command Center - Bot Builder AI",
+    page_title="CEO AI Organization Portal",
     page_icon="👔",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for executive styling
-st.markdown("""
-<style>
-.main-header {
-    font-size: 3rem;
-    font-weight: bold;
-    color: #1f4e79;
-    text-align: center;
-    margin-bottom: 2rem;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-}
-
-.metric-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 1.5rem;
-    border-radius: 10px;
-    color: white;
-    margin: 0.5rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.priority-critical {
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-    color: white;
-    padding: 0.5rem;
-    border-radius: 5px;
-    font-weight: bold;
-}
-
-.priority-high {
-    background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);
-    color: #2c2c2c;
-    padding: 0.5rem;
-    border-radius: 5px;
-    font-weight: bold;
-}
-
-.priority-medium {
-    background: linear-gradient(135deg, #48dbfb 0%, #0abde3 100%);
-    color: white;
-    padding: 0.5rem;
-    border-radius: 5px;
-    font-weight: bold;
-}
-
-.team-status-healthy {
-    background: linear-gradient(135deg, #00d2d3 0%, #54a0ff 100%);
-    color: white;
-    padding: 1rem;
-    border-radius: 8px;
-    margin: 0.5rem;
-}
-
-.team-status-attention {
-    background: linear-gradient(135deg, #ffa502 0%, #ff6348 100%);
-    color: white;
-    padding: 1rem;
-    border-radius: 8px;
-    margin: 0.5rem;
-}
-
-.decision-card {
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 1rem;
-    margin: 0.5rem 0;
-    background: white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.quick-action-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    padding: 0.8rem 1.5rem;
-    border-radius: 25px;
-    font-weight: bold;
-    margin: 0.2rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.executive-summary {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
-    padding: 2rem;
-    border-radius: 15px;
-    margin: 1rem 0;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-}
-</style>
-""", unsafe_allow_html=True)
+# Import components
+try:
+    from core.ceo_portal import CEOPortal, DecisionCategory, Priority
+    from core.sdlc_bot_team import SDLCBotTeam, TaskPriority, BotRole
+    from core.cross_team_coordinator import CrossTeamCoordinator
+    from core.ai_engine import AIEngine
+except ImportError as e:
+    st.error(f"Import error: {e}")
+    st.stop()
 
 # Initialize session state
-if 'ceo_portal' not in st.session_state:
+if 'organization_initialized' not in st.session_state:
+    st.session_state.organization_initialized = False
     st.session_state.ceo_portal = None
-if 'sdlc_team' not in st.session_state:
     st.session_state.sdlc_team = None
-if 'ai_engine' not in st.session_state:
-    st.session_state.ai_engine = None
-if 'last_refresh' not in st.session_state:
-    st.session_state.last_refresh = datetime.now()
+    st.session_state.business_engine = None
+    st.session_state.coordinator = None
+    st.session_state.business_domain = "Business Domain"
+    st.session_state.industry = "Software Development"
+    st.session_state.last_update = datetime.now()
 
-async def initialize_systems():
-    """Initialize all CEO portal systems."""
-    if st.session_state.ceo_portal is None:
-        with st.spinner("🚀 Initializing CEO Command Center..."):
-            # Initialize CEO Portal
-            st.session_state.ceo_portal = CEOPortal()
-            await st.session_state.ceo_portal.initialize()
-            
-            # Initialize SDLC Bot Team
-            st.session_state.sdlc_team = SDLCBotTeam(st.session_state.ceo_portal)
-            await st.session_state.sdlc_team.initialize()
-            
-            # Initialize AI Engine
-            st.session_state.ai_engine = AIEngine()
-            await st.session_state.ai_engine.initialize()
-            
-            st.success("✅ CEO Command Center initialized successfully!")
+# Async wrapper for Streamlit
+def run_async(coro):
+    """Run async function in Streamlit."""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    return loop.run_until_complete(coro)
 
-def create_executive_summary_card(summary: Dict[str, Any]):
-    """Create executive summary card."""
-    st.markdown('<div class="executive-summary">', unsafe_allow_html=True)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            "Pending Decisions", 
-            summary.get('total_pending_decisions', 0),
-            delta=f"🔴 {summary.get('critical_decisions', 0)} Critical"
-        )
-    
-    with col2:
-        financial_impact = summary.get('financial_summary', {}).get('total_impact', 0)
-        st.metric(
-            "Financial Impact", 
-            f"${financial_impact:,.0f}",
-            delta="Pending Decisions"
-        )
-    
-    with col3:
-        risk_level = summary.get('risk_summary', {}).get('average_risk', 0)
-        st.metric(
-            "Risk Level", 
-            f"{risk_level:.1%}",
-            delta="Average Risk"
-        )
-    
-    with col4:
-        strategic_progress = summary.get('strategic_progress', {}).get('overall_alignment', 0)
-        st.metric(
-            "Strategic Alignment", 
-            f"{strategic_progress:.1%}",
-            delta="Overall Progress"
-        )
-    
-    # Key insights
-    if summary.get('key_insights'):
-        st.subheader("🎯 Key Insights")
-        for insight in summary['key_insights'][:3]:
-            st.info(f"💡 {insight}")
-    
-    # Recommendations
-    if summary.get('recommendations'):
-        st.subheader("📋 Recommendations")
-        for rec in summary['recommendations'][:2]:
-            st.warning(f"⚠️ {rec}")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def create_decision_queue_section(dashboard: Dict[str, Any]):
-    """Create decision queue section."""
-    st.header("🎯 Executive Decision Queue")
-    
-    pending_decisions = dashboard.get('pending_decisions', {})
-    
-    # Critical decisions
-    critical_decisions = pending_decisions.get('critical', [])
-    if critical_decisions:
-        st.subheader("🚨 Critical Decisions (Immediate Attention Required)")
+async def initialize_organization():
+    """Initialize the organization system."""
+    try:
+        # Initialize CEO Portal
+        ceo_portal = CEOPortal()
+        await ceo_portal.initialize()
         
-        for decision in critical_decisions:
-            with st.expander(f"🔴 {decision['title']}", expanded=True):
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    st.write(f"**Description:** {decision['description']}")
-                    st.write(f"**Requesting Bot:** {decision['requesting_bot']}")
-                    st.write(f"**Team:** {decision['requesting_team']}")
-                    st.write(f"**Financial Impact:** ${decision['financial_impact']:,.0f}")
-                    st.write(f"**Risk Level:** {decision['risk_level']:.1%}")
-                    st.write(f"**Deadline:** {decision['deadline']}")
-                
-                with col2:
-                    st.markdown('<div class="priority-critical">CRITICAL</div>', unsafe_allow_html=True)
-                    
-                    if st.button(f"✅ Approve", key=f"approve_{decision['id']}"):
-                        await handle_ceo_decision(decision['id'], "APPROVED", "Approved by CEO")
-                        st.rerun()
-                    
-                    if st.button(f"❌ Reject", key=f"reject_{decision['id']}"):
-                        await handle_ceo_decision(decision['id'], "REJECTED", "Rejected by CEO")
-                        st.rerun()
-                    
-                    if st.button(f"📋 Details", key=f"details_{decision['id']}"):
-                        st.session_state.selected_decision = decision['id']
-    
-    # High priority decisions
-    high_decisions = pending_decisions.get('high', [])
-    if high_decisions:
-        st.subheader("🟡 High Priority Decisions")
+        # Initialize Business Engine
+        business_engine = AIEngine()
+        await business_engine.initialize()
         
-        for decision in high_decisions[:5]:  # Show top 5
-            with st.expander(f"🟡 {decision['title']}"):
-                col1, col2 = st.columns([3, 1])
-                
-                with col1:
-                    st.write(f"**Description:** {decision['description'][:200]}...")
-                    st.write(f"**Financial Impact:** ${decision['financial_impact']:,.0f}")
-                    st.write(f"**Escalation Reason:** {decision['escalation_reason']}")
-                
-                with col2:
-                    st.markdown('<div class="priority-high">HIGH</div>', unsafe_allow_html=True)
-                    
-                    col2a, col2b = st.columns(2)
-                    with col2a:
-                        if st.button("✅", key=f"approve_h_{decision['id']}"):
-                            await handle_ceo_decision(decision['id'], "APPROVED", "Approved")
-                            st.rerun()
-                    with col2b:
-                        if st.button("❌", key=f"reject_h_{decision['id']}"):
-                            await handle_ceo_decision(decision['id'], "REJECTED", "Rejected")
-                            st.rerun()
-
-def create_team_status_section(dashboard: Dict[str, Any]):
-    """Create team status monitoring section."""
-    st.header("👥 Team Status Overview")
-    
-    team_status = dashboard.get('team_status', {})
-    
-    if team_status:
-        # Team health overview
-        teams_df = pd.DataFrame([
-            {
-                'Team': team_name,
-                'Health Score': status['health_score'],
-                'Active Bots': status['active_bots'],
-                'Total Tasks': status['total_tasks'],
-                'Completed': status['completed_tasks'],
-                'Blocked': status['blocked_tasks'],
-                'Type': status['team_type']
-            }
-            for team_name, status in team_status.items()
-        ])
-        
-        # Health score chart
-        fig = px.bar(
-            teams_df, 
-            x='Team', 
-            y='Health Score',
-            color='Health Score',
-            color_continuous_scale='RdYlGn',
-            title="Team Health Scores"
-        )
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Team details
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("🏆 High Performing Teams")
-            healthy_teams = teams_df[teams_df['Health Score'] > 0.8].sort_values('Health Score', ascending=False)
-            
-            for _, team in healthy_teams.iterrows():
-                st.markdown(f"""
-                <div class="team-status-healthy">
-                    <strong>{team['Team']}</strong><br>
-                    Health: {team['Health Score']:.1%} | 
-                    Tasks: {team['Completed']}/{team['Total Tasks']} | 
-                    Bots: {team['Active Bots']}
-                </div>
-                """, unsafe_allow_html=True)
-        
-        with col2:
-            st.subheader("⚠️ Teams Needing Attention")
-            attention_teams = teams_df[teams_df['Health Score'] <= 0.8].sort_values('Health Score')
-            
-            for _, team in attention_teams.iterrows():
-                st.markdown(f"""
-                <div class="team-status-attention">
-                    <strong>{team['Team']}</strong><br>
-                    Health: {team['Health Score']:.1%} | 
-                    Blocked: {team['Blocked']} | 
-                    Issues: Low Performance
-                </div>
-                """, unsafe_allow_html=True)
-    
-    else:
-        st.info("No team data available. Teams are initializing...")
-
-def create_real_time_market_section():
-    """Create real-time market data section."""
-    st.header("📈 Real-Time Market Intelligence")
-    
-    if st.session_state.ai_engine and st.session_state.ai_engine.real_time_enabled:
-        # Get market summary
-        market_summary = asyncio.run(st.session_state.ai_engine.get_real_time_market_summary())
-        
-        if market_summary and 'symbols' in market_summary:
-            # Market overview metrics
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Active Symbols", len(market_summary['symbols']))
-            with col2:
-                st.metric("Active Connections", market_summary.get('active_connections', 0))
-            with col3:
-                st.metric("Data Quality", f"{market_summary.get('data_quality', {}).get('average', 0):.1%}")
-            with col4:
-                st.metric("Recent Events", market_summary.get('recent_events', 0))
-            
-            # Symbol performance
-            symbols_data = []
-            for symbol, data in market_summary['symbols'].items():
-                symbols_data.append({
-                    'Symbol': symbol,
-                    'Price': data['price'],
-                    'Change %': data['change_percent'],
-                    'Volume': data['volume'],
-                    'Last Update': data['last_update']
-                })
-            
-            if symbols_data:
-                symbols_df = pd.DataFrame(symbols_data)
-                
-                # Price change chart
-                fig = px.bar(
-                    symbols_df,
-                    x='Symbol',
-                    y='Change %',
-                    color='Change %',
-                    color_continuous_scale='RdYlGn',
-                    title="Market Performance Today"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Market data table
-                st.subheader("📊 Live Market Data")
-                st.dataframe(
-                    symbols_df,
-                    use_container_width=True,
-                    column_config={
-                        "Price": st.column_config.NumberColumn("Price", format="$%.2f"),
-                        "Change %": st.column_config.NumberColumn("Change %", format="%.2f%%"),
-                        "Volume": st.column_config.NumberColumn("Volume", format="%d")
-                    }
-                )
-    else:
-        st.info("Real-time market data is initializing...")
-
-def create_quick_actions_section(dashboard: Dict[str, Any]):
-    """Create quick actions section."""
-    st.header("⚡ Quick Actions")
-    
-    quick_actions = dashboard.get('quick_actions', [])
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("🔍 Review All Critical Decisions", use_container_width=True):
-            st.session_state.view_mode = "critical_decisions"
-            st.rerun()
-    
-    with col2:
-        if st.button("👥 Check Team Performance", use_container_width=True):
-            st.session_state.view_mode = "team_performance"
-            st.rerun()
-    
-    with col3:
-        if st.button("📈 Market Analysis", use_container_width=True):
-            st.session_state.view_mode = "market_analysis"
-            st.rerun()
-    
-    # Display suggested actions
-    if quick_actions:
-        st.subheader("🎯 Suggested Actions")
-        
-        for action in quick_actions:
-            urgency_color = {
-                "HIGH": "🔴",
-                "MEDIUM": "🟡", 
-                "LOW": "🟢"
-            }.get(action.get('urgency', 'LOW'), '🟢')
-            
-            st.info(f"{urgency_color} **{action['title']}** - {action['description']}")
-
-def create_system_health_section(dashboard: Dict[str, Any]):
-    """Create system health monitoring section."""
-    st.header("🏥 System Health")
-    
-    system_health = dashboard.get('system_health', {})
-    
-    if system_health:
-        # Overall health gauge
-        overall_health = system_health.get('overall_health', 0.5)
-        
-        fig = go.Figure(go.Indicator(
-            mode = "gauge+number+delta",
-            value = overall_health * 100,
-            domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': "Overall System Health"},
-            delta = {'reference': 80},
-            gauge = {
-                'axis': {'range': [None, 100]},
-                'bar': {'color': "darkblue"},
-                'steps': [
-                    {'range': [0, 50], 'color': "lightgray"},
-                    {'range': [50, 80], 'color': "yellow"},
-                    {'range': [80, 100], 'color': "green"}
-                ],
-                'threshold': {
-                    'line': {'color': "red", 'width': 4},
-                    'thickness': 0.75,
-                    'value': 90
-                }
-            }
-        ))
-        
-        fig.update_layout(height=300)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Health metrics
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric(
-                "Team Health", 
-                f"{system_health.get('team_health', 0.5):.1%}",
-                delta="Average across teams"
-            )
-        
-        with col2:
-            st.metric(
-                "Decision Queue", 
-                f"{system_health.get('decision_queue_health', 0.5):.1%}",
-                delta="Processing efficiency"
-            )
-        
-        with col3:
-            st.metric(
-                "Active Teams", 
-                system_health.get('active_teams', 0),
-                delta="Currently operational"
-            )
-        
-        # Status indicator
-        status = system_health.get('status', 'UNKNOWN')
-        status_colors = {
-            'HEALTHY': '🟢',
-            'ATTENTION_NEEDED': '🟡',
-            'CRITICAL': '🔴',
-            'UNKNOWN': '⚪'
+        # Initialize SDLC Bot Team
+        project_context = {
+            "industry": st.session_state.industry,
+            "business_domain": st.session_state.business_domain,
+            "project_type": f"{st.session_state.industry} Application Development",
+            "self_improvement_mode": True  # Enable self-improvement capabilities
         }
         
-        st.info(f"{status_colors.get(status, '⚪')} **System Status:** {status}")
-
-async def handle_ceo_decision(decision_id: str, action: str, response: str):
-    """Handle CEO decision approval/rejection."""
-    if st.session_state.ceo_portal:
-        approved = action == "APPROVED"
-        result = await st.session_state.ceo_portal.process_ceo_decision(
-            decision_id, 
-            response, 
-            approved
-        )
+        sdlc_team = SDLCBotTeam(ceo_portal, project_context)
+        await sdlc_team.initialize()
         
-        if result['success']:
-            st.success(f"✅ Decision {action.lower()} successfully!")
-        else:
-            st.error(f"❌ Error processing decision: {result.get('error', 'Unknown error')}")
+        # Initialize Cross-Team Coordinator
+        coordinator = CrossTeamCoordinator(
+            ceo_portal, 
+            sdlc_team, 
+            business_engine, 
+            st.session_state.business_domain
+        )
+        await coordinator.initialize()
+        
+        # Store in session state
+        st.session_state.ceo_portal = ceo_portal
+        st.session_state.sdlc_team = sdlc_team
+        st.session_state.business_engine = business_engine
+        st.session_state.coordinator = coordinator
+        st.session_state.organization_initialized = True
+        st.session_state.last_update = datetime.now()
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"Error initializing organization: {str(e)}")
+        return False
 
-def create_sidebar():
-    """Create sidebar with navigation and controls."""
-    st.sidebar.markdown('<div class="main-header">CEO Portal</div>', unsafe_allow_html=True)
+def create_bot_status_chart(bot_data: Dict[str, Any]) -> go.Figure:
+    """Create interactive bot status visualization chart."""
     
-    # Navigation
-    st.sidebar.subheader("🧭 Navigation")
-    view_mode = st.sidebar.radio(
-        "Select View",
-        ["Executive Dashboard", "Decision Queue", "Team Management", "Market Intelligence", "System Health"],
-        key="nav_radio"
+    # Prepare data for visualization
+    teams = []
+    bot_names = []
+    roles = []
+    statuses = []
+    availabilities = []
+    success_rates = []
+    current_tasks = []
+    colors = []
+    
+    # Status color mapping
+    status_colors = {
+        'ACTIVE': '#28a745',
+        'BUSY': '#ffc107', 
+        'OFFLINE': '#dc3545',
+        'MAINTENANCE': '#6c757d'
+    }
+    
+    for team_name, team_data in bot_data.items():
+        team_bots = team_data.get('bots', [])
+        
+        for bot in team_bots:
+            teams.append(team_name)
+            bot_names.append(bot.get('name', 'Unknown'))
+            roles.append(bot.get('role', 'Unknown'))
+            statuses.append(bot.get('status', 'OFFLINE'))
+            availabilities.append(bot.get('availability', 0.0) * 100)
+            success_rates.append(bot.get('success_rate', 0.0) * 100)
+            current_tasks.append(len(bot.get('current_tasks', [])))
+            colors.append(status_colors.get(bot.get('status', 'OFFLINE'), '#6c757d'))
+    
+    # Create subplot with multiple charts
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=(
+            'Bot Status Distribution', 'Team Bot Count',
+            'Bot Availability Levels', 'Bot Performance vs Workload'
+        ),
+        specs=[[{"type": "pie"}, {"type": "bar"}],
+               [{"type": "bar"}, {"type": "scatter"}]]
     )
     
-    # Quick stats
-    st.sidebar.subheader("📊 Quick Stats")
-    if st.session_state.ceo_portal:
-        dashboard = asyncio.run(st.session_state.ceo_portal.get_ceo_dashboard())
-        
-        pending_count = dashboard.get('pending_decisions', {}).get('total_count', 0)
-        critical_count = len(dashboard.get('pending_decisions', {}).get('critical', []))
-        
-        st.sidebar.metric("Pending Decisions", pending_count)
-        st.sidebar.metric("Critical Items", critical_count)
-        
-        # System status
-        system_health = dashboard.get('system_health', {})
-        status = system_health.get('status', 'UNKNOWN')
-        health_score = system_health.get('overall_health', 0.5)
-        
-        st.sidebar.metric("System Health", f"{health_score:.1%}")
-        st.sidebar.info(f"Status: {status}")
+    # 1. Status Distribution Pie Chart
+    status_counts = pd.Series(statuses).value_counts()
+    fig.add_trace(
+        go.Pie(
+            labels=status_counts.index,
+            values=status_counts.values,
+            name="Status Distribution",
+            marker_colors=[status_colors.get(status, '#6c757d') for status in status_counts.index]
+        ),
+        row=1, col=1
+    )
     
-    # Controls
-    st.sidebar.subheader("⚙️ Controls")
+    # 2. Team Bot Count Bar Chart
+    team_counts = pd.Series(teams).value_counts()
+    fig.add_trace(
+        go.Bar(
+            x=team_counts.index,
+            y=team_counts.values,
+            name="Bots per Team",
+            marker_color='lightblue'
+        ),
+        row=1, col=2
+    )
     
-    if st.sidebar.button("🔄 Refresh Data"):
-        st.session_state.last_refresh = datetime.now()
-        st.rerun()
+    # 3. Bot Availability Levels
+    fig.add_trace(
+        go.Bar(
+            x=bot_names,
+            y=availabilities,
+            name="Availability %",
+            marker_color=colors,
+            text=[f"{avail:.1f}%" for avail in availabilities],
+            textposition='auto'
+        ),
+        row=2, col=1
+    )
     
-    auto_refresh = st.sidebar.checkbox("🔄 Auto-refresh (30s)", value=False)
+    # 4. Performance vs Workload Scatter
+    fig.add_trace(
+        go.Scatter(
+            x=current_tasks,
+            y=success_rates,
+            mode='markers+text',
+            text=bot_names,
+            textposition="top center",
+            name="Performance vs Load",
+            marker=dict(
+                size=15,
+                color=availabilities,
+                colorscale='Viridis',
+                showscale=True,
+                colorbar=dict(title="Availability %")
+            )
+        ),
+        row=2, col=2
+    )
     
-    if auto_refresh:
-        time.sleep(30)
-        st.rerun()
+    # Update layout
+    fig.update_layout(
+        height=800,
+        showlegend=True,
+        title_text="Bot Builder AI Organization - Active Bots Dashboard",
+        title_x=0.5
+    )
     
-    # Emergency controls
-    st.sidebar.subheader("🚨 Emergency Controls")
-    if st.sidebar.button("🛑 Emergency Stop All Bots"):
-        st.sidebar.error("Emergency stop activated!")
+    # Update axes labels
+    fig.update_xaxes(title_text="Teams", row=1, col=2)
+    fig.update_yaxes(title_text="Bot Count", row=1, col=2)
     
-    if st.sidebar.button("📞 Escalate to CEO"):
-        st.sidebar.warning("Manual escalation requested!")
+    fig.update_xaxes(title_text="Bots", row=2, col=1)
+    fig.update_yaxes(title_text="Availability %", row=2, col=1)
     
-    return view_mode
+    fig.update_xaxes(title_text="Current Tasks", row=2, col=2)
+    fig.update_yaxes(title_text="Success Rate %", row=2, col=2)
+    
+    return fig
 
-def main():
-    """Main CEO Portal application."""
-    # Header
-    st.markdown('<div class="main-header">👔 CEO Command Center</div>', unsafe_allow_html=True)
-    st.markdown("**Strategic oversight for your AI organization**")
+def create_bot_hierarchy_chart(bot_data: Dict[str, Any]) -> go.Figure:
+    """Create bot hierarchy and organization chart."""
     
-    # Initialize systems
-    asyncio.run(initialize_systems())
+    # Prepare hierarchical data
+    fig = go.Figure()
     
-    # Sidebar navigation
-    view_mode = create_sidebar()
+    # Create a network-style visualization
+    team_positions = {
+        'Architecture': (0, 4),
+        'Development': (2, 4), 
+        'Quality': (4, 4),
+        'Data': (6, 4),
+        'Management': (8, 4)
+    }
     
-    # Get dashboard data
-    dashboard = {}
-    if st.session_state.ceo_portal:
-        dashboard = asyncio.run(st.session_state.ceo_portal.get_ceo_dashboard())
-    
-    # Main content based on view mode
-    if view_mode == "Executive Dashboard":
-        # Executive summary
-        if dashboard.get('executive_summary'):
-            create_executive_summary_card(dashboard['executive_summary'])
+    # Add team nodes
+    for team_name, (x, y) in team_positions.items():
+        fig.add_trace(
+            go.Scatter(
+                x=[x], y=[y],
+                mode='markers+text',
+                text=[team_name],
+                textposition="middle center",
+                marker=dict(size=40, color='lightblue'),
+                name=team_name,
+                showlegend=True
+            )
+        )
         
-        # Quick overview sections
+        # Add bot nodes for each team
+        team_bots = bot_data.get(team_name, {}).get('bots', [])
+        bot_y_positions = [y - 1 - (i * 0.5) for i in range(len(team_bots))]
+        
+        for i, bot in enumerate(team_bots):
+            bot_x = x + (i % 3 - 1) * 0.3  # Spread bots horizontally
+            bot_y = bot_y_positions[i // 3]  # Stack bots vertically
+            
+            status_color = {
+                'ACTIVE': 'green',
+                'BUSY': 'orange',
+                'OFFLINE': 'red',
+                'MAINTENANCE': 'gray'
+            }.get(bot.get('status', 'OFFLINE'), 'gray')
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=[bot_x], y=[bot_y],
+                    mode='markers+text',
+                    text=[bot.get('name', 'Bot')],
+                    textposition="bottom center",
+                    marker=dict(size=20, color=status_color),
+                    name=f"{team_name} Bot",
+                    showlegend=False
+                )
+            )
+            
+            # Add connection line from team to bot
+            fig.add_trace(
+                go.Scatter(
+                    x=[x, bot_x], y=[y, bot_y],
+                    mode='lines',
+                    line=dict(color='lightgray', width=1),
+                    showlegend=False
+                )
+            )
+    
+    fig.update_layout(
+        title="Bot Builder Organization Hierarchy",
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        height=600,
+        showlegend=True
+    )
+    
+    return fig
+
+async def get_bot_data():
+    """Get comprehensive bot data from all teams."""
+    if not st.session_state.organization_initialized:
+        return {}
+    
+    bot_data = {}
+    
+    try:
+        sdlc_team = st.session_state.sdlc_team
+        
+        # Get data for each team
+        team_names = ["Architecture", "Development", "Quality", "Data", "Management"]
+        
+        for team_name in team_names:
+            team_status = await sdlc_team.get_team_status(team_name)
+            
+            # Get individual bot data
+            team_bots = []
+            for bot_id, bot in sdlc_team.bots.items():
+                if bot.team == team_name:
+                    team_bots.append({
+                        'id': bot.id,
+                        'name': bot.name,
+                        'role': bot.role.value,
+                        'status': bot.status,
+                        'availability': bot.availability,
+                        'success_rate': bot.success_rate,
+                        'current_tasks': bot.current_tasks,
+                        'completed_tasks': bot.completed_tasks,
+                        'specializations': bot.specializations,
+                        'last_active': bot.last_active.isoformat()
+                    })
+            
+            bot_data[team_name] = {
+                'team_status': team_status,
+                'bots': team_bots,
+                'total_bots': len(team_bots),
+                'active_bots': len([b for b in team_bots if b['status'] == 'ACTIVE']),
+                'avg_availability': sum(b['availability'] for b in team_bots) / len(team_bots) if team_bots else 0
+            }
+        
+        return bot_data
+        
+    except Exception as e:
+        st.error(f"Error getting bot data: {str(e)}")
+        return {}
+
+async def submit_self_improvement_request(improvement_request: str, priority: str):
+    """Submit a self-improvement request to the SDLC team."""
+    try:
+        if not st.session_state.organization_initialized:
+            return False, "Organization not initialized"
+        
+        sdlc_team = st.session_state.sdlc_team
+        
+        # Convert priority
+        priority_map = {
+            "CRITICAL": TaskPriority.CRITICAL,
+            "HIGH": TaskPriority.HIGH,
+            "MEDIUM": TaskPriority.MEDIUM,
+            "LOW": TaskPriority.LOW
+        }
+        
+        task_priority = priority_map.get(priority, TaskPriority.MEDIUM)
+        
+        # Create self-improvement task
+        task_id = await sdlc_team.assign_task(
+            title=f"Bot Builder Self-Improvement: {improvement_request[:50]}...",
+            description=f"""SELF-IMPROVEMENT REQUEST
+            
+**Requested Enhancement:** {improvement_request}
+
+**Context:** This is a recursive self-improvement request where Bot Builder is using its own SDLC team to enhance itself based on CEO feedback and requirements.
+
+**Target System:** Bot Builder Core Systems
+- CEO Portal enhancements
+- SDLC Bot Team improvements  
+- Cross-team coordination upgrades
+- UI/UX enhancements
+- Performance optimizations
+
+**Implementation Guidelines:**
+1. Analyze current system architecture
+2. Identify specific improvement areas
+3. Design and implement enhancements
+4. Test thoroughly with existing functionality
+5. Document changes and update system
+
+**Success Criteria:**
+- Enhancement implemented successfully
+- No regression in existing functionality
+- Improved user experience for CEO operations
+- Measurable performance improvements
+
+**Self-Awareness Note:** This task represents Bot Builder evolving itself through its own autonomous development capabilities.
+            """,
+            task_type="FEATURE",
+            priority=task_priority,
+            estimated_hours=16,
+            industry_context={
+                "industry": "AI Systems Development",
+                "business_domain": "Bot Builder Self-Improvement",
+                "improvement_type": "recursive_enhancement",
+                "target_system": "bot_builder_core"
+            }
+        )
+        
+        if task_id:
+            # Also create a CEO decision for high-priority improvements
+            if task_priority in [TaskPriority.CRITICAL, TaskPriority.HIGH]:
+                await st.session_state.ceo_portal.submit_decision_for_approval(
+                    requesting_bot="BOT_BUILDER_CORE",
+                    title=f"Self-Improvement Initiative: {improvement_request[:50]}...",
+                    description=f"Bot Builder requests permission to enhance itself using its own SDLC team.\n\n"
+                               f"**Improvement Request:** {improvement_request}\n\n"
+                               f"**Approach:** Recursive self-enhancement through autonomous SDLC bots\n"
+                               f"**Priority:** {priority}\n"
+                               f"**Estimated Effort:** 16 hours\n\n"
+                               f"This represents Bot Builder achieving self-aware improvement capabilities.",
+                    category=DecisionCategory.TECHNOLOGY,
+                    financial_impact=0,
+                    risk_level=0.3,
+                    strategic_alignment=0.9,
+                    context={
+                        "improvement_type": "self_enhancement",
+                        "task_id": task_id,
+                        "system": "bot_builder_recursive_improvement"
+                    }
+                )
+            
+            return True, f"Self-improvement task created: {task_id}"
+        else:
+            return False, "Failed to create improvement task"
+            
+    except Exception as e:
+        return False, f"Error submitting improvement request: {str(e)}"
+
+# Main Streamlit App
+def main():
+    """Main Streamlit application."""
+    
+    # Header
+    st.title("🤖 Bot Builder CEO Portal")
+    st.markdown("**Industry-Agnostic AI Organization Management**")
+    
+    # Sidebar for organization setup
+    with st.sidebar:
+        st.header("🏢 Organization Setup")
+        
+        # Business domain configuration
+        business_domain = st.text_input(
+            "Business Domain", 
+            value=st.session_state.business_domain,
+            help="e.g., Healthcare Systems, E-commerce Platform, FinTech Services"
+        )
+        
+        industry = st.selectbox(
+            "Industry",
+            ["Software Development", "Healthcare", "FinTech", "E-commerce", "Manufacturing", 
+             "Entertainment", "Education", "Logistics", "Energy", "Other"],
+            index=0 if st.session_state.industry == "Software Development" else 1
+        )
+        
+        if st.button("🚀 Initialize Organization"):
+            st.session_state.business_domain = business_domain
+            st.session_state.industry = industry
+            
+            with st.spinner("Initializing AI Organization..."):
+                success = run_async(initialize_organization())
+                
+            if success:
+                st.success("✅ Organization initialized!")
+                st.rerun()
+            else:
+                st.error("❌ Initialization failed")
+        
+        # Show initialization status
+        if st.session_state.organization_initialized:
+            st.success("✅ Organization Active")
+            st.info(f"**Domain:** {st.session_state.business_domain}")
+            st.info(f"**Industry:** {st.session_state.industry}")
+            
+            if st.button("🔄 Refresh Data"):
+                st.session_state.last_update = datetime.now()
+                st.rerun()
+        
+        # Self-improvement section
+        st.header("🧠 Bot Builder Self-Improvement")
+        st.markdown("*Use Bot Builder's own SDLC team to enhance itself*")
+        
+        improvement_request = st.text_area(
+            "Enhancement Request",
+            placeholder="Describe what you'd like Bot Builder to improve about itself...",
+            help="e.g., 'Add real-time notifications to CEO dashboard', 'Improve bot task assignment algorithm', 'Create better visualization charts'"
+        )
+        
+        improvement_priority = st.selectbox(
+            "Priority",
+            ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+            index=1
+        )
+        
+        if st.button("🚀 Submit Self-Improvement"):
+            if improvement_request.strip():
+                with st.spinner("Submitting improvement request to SDLC team..."):
+                    success, message = run_async(
+                        submit_self_improvement_request(improvement_request, improvement_priority)
+                    )
+                
+                if success:
+                    st.success(f"✅ {message}")
+                    st.info("🤖 Bot Builder will now use its own SDLC team to implement this improvement!")
+                else:
+                    st.error(f"❌ {message}")
+            else:
+                st.warning("Please enter an improvement request")
+    
+    # Main content area
+    if not st.session_state.organization_initialized:
+        st.info("👈 Please initialize the organization from the sidebar to get started.")
+        
+        # Show demo preview
+        st.header("🎯 What You'll Get")
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            # Critical decisions preview
-            critical_decisions = dashboard.get('pending_decisions', {}).get('critical', [])
-            if critical_decisions:
-                st.subheader("🚨 Critical Decisions")
-                for decision in critical_decisions[:3]:
-                    st.error(f"🔴 {decision['title']} - ${decision['financial_impact']:,.0f}")
-            
-            # Quick actions
-            create_quick_actions_section(dashboard)
+            st.markdown("""
+            ### 📊 Real-Time Bot Monitoring
+            - Live status of all active bots
+            - Performance metrics and availability
+            - Team distribution and workload
+            - Interactive visualizations
+            """)
         
         with col2:
-            # Team status summary
-            team_status = dashboard.get('team_status', {})
-            if team_status:
-                st.subheader("👥 Team Summary")
-                
-                healthy_teams = len([t for t in team_status.values() if t['health_score'] > 0.8])
-                total_teams = len(team_status)
-                
-                st.metric("Healthy Teams", f"{healthy_teams}/{total_teams}")
-                
-                # Top performing team
-                if team_status:
-                    top_team = max(team_status.items(), key=lambda x: x[1]['health_score'])
-                    st.success(f"🏆 Top Team: {top_team[0]} ({top_team[1]['health_score']:.1%})")
+            st.markdown("""
+            ### 🧠 Self-Improvement Capabilities  
+            - Bot Builder can enhance itself
+            - Uses its own SDLC team for improvements
+            - CEO-requested feature development
+            - Recursive AI system evolution
+            """)
+        
+        return
+    
+    # Tabs for different views
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 Bot Dashboard", "🏢 Organization Chart", "🎯 CEO Decisions", 
+        "🤝 Team Coordination", "🧠 Self-Improvement"
+    ])
+    
+    with tab1:
+        st.header("🤖 Active Bots Dashboard")
+        
+        # Get bot data
+        with st.spinner("Loading bot data..."):
+            bot_data = run_async(get_bot_data())
+        
+        if bot_data:
+            # Summary metrics
+            col1, col2, col3, col4 = st.columns(4)
             
-            # System health summary
-            system_health = dashboard.get('system_health', {})
-            if system_health:
-                st.subheader("🏥 System Health")
-                overall_health = system_health.get('overall_health', 0.5)
-                status = system_health.get('status', 'UNKNOWN')
+            total_bots = sum(team['total_bots'] for team in bot_data.values())
+            active_bots = sum(team['active_bots'] for team in bot_data.values())
+            avg_availability = sum(team['avg_availability'] for team in bot_data.values()) / len(bot_data)
+            
+            with col1:
+                st.metric("Total Bots", total_bots)
+            with col2:
+                st.metric("Active Bots", active_bots, f"{active_bots/total_bots*100:.1f}%")
+            with col3:
+                st.metric("Avg Availability", f"{avg_availability*100:.1f}%")
+            with col4:
+                st.metric("Teams", len(bot_data))
+            
+            # Interactive charts
+            st.subheader("📈 Bot Status Analysis")
+            
+            # Create and display the main bot chart
+            chart = create_bot_status_chart(bot_data)
+            st.plotly_chart(chart, use_container_width=True)
+            
+            # Detailed bot table
+            st.subheader("🤖 Detailed Bot Information")
+            
+            # Create comprehensive bot DataFrame
+            all_bots = []
+            for team_name, team_info in bot_data.items():
+                for bot in team_info['bots']:
+                    all_bots.append({
+                        'Team': team_name,
+                        'Bot Name': bot['name'],
+                        'Role': bot['role'],
+                        'Status': bot['status'],
+                        'Availability': f"{bot['availability']*100:.1f}%",
+                        'Success Rate': f"{bot['success_rate']*100:.1f}%",
+                        'Current Tasks': len(bot['current_tasks']),
+                        'Completed Tasks': bot['completed_tasks'],
+                        'Specializations': ', '.join(bot['specializations'][:3])
+                    })
+            
+            if all_bots:
+                df = pd.DataFrame(all_bots)
                 
-                st.metric("Overall Health", f"{overall_health:.1%}")
-                st.info(f"Status: {status}")
+                # Add filters
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    team_filter = st.multiselect("Filter by Team", df['Team'].unique(), default=df['Team'].unique())
+                with col2:
+                    status_filter = st.multiselect("Filter by Status", df['Status'].unique(), default=df['Status'].unique())
+                with col3:
+                    role_filter = st.multiselect("Filter by Role", df['Role'].unique(), default=df['Role'].unique())
+                
+                # Apply filters
+                filtered_df = df[
+                    (df['Team'].isin(team_filter)) &
+                    (df['Status'].isin(status_filter)) &
+                    (df['Role'].isin(role_filter))
+                ]
+                
+                st.dataframe(filtered_df, use_container_width=True)
+        else:
+            st.warning("No bot data available. Please check system initialization.")
     
-    elif view_mode == "Decision Queue":
-        create_decision_queue_section(dashboard)
+    with tab2:
+        st.header("🏢 Organization Structure")
+        
+        with st.spinner("Loading organization chart..."):
+            bot_data = run_async(get_bot_data())
+        
+        if bot_data:
+            # Create hierarchy chart
+            hierarchy_chart = create_bot_hierarchy_chart(bot_data)
+            st.plotly_chart(hierarchy_chart, use_container_width=True)
+            
+            # Team breakdown
+            st.subheader("📋 Team Breakdown")
+            
+            for team_name, team_info in bot_data.items():
+                with st.expander(f"🔧 {team_name} Team"):
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Total Bots", team_info['total_bots'])
+                    with col2:
+                        st.metric("Active Bots", team_info['active_bots'])
+                    with col3:
+                        st.metric("Avg Availability", f"{team_info['avg_availability']*100:.1f}%")
+                    
+                    # Bot details for this team
+                    team_bots = team_info['bots']
+                    if team_bots:
+                        for bot in team_bots:
+                            st.write(f"**{bot['name']}** ({bot['role']}) - {bot['status']}")
+                            st.write(f"└ Availability: {bot['availability']*100:.1f}% | Tasks: {len(bot['current_tasks'])} | Success: {bot['success_rate']*100:.1f}%")
     
-    elif view_mode == "Team Management":
-        create_team_status_section(dashboard)
+    with tab3:
+        st.header("🎯 CEO Decision Center")
+        
+        if st.session_state.ceo_portal:
+            with st.spinner("Loading pending decisions..."):
+                try:
+                    dashboard_data = run_async(st.session_state.ceo_portal.get_dashboard_data())
+                    pending_decisions = dashboard_data.get('pending_decisions', {})
+                    
+                    # Decision summary
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Critical", len(pending_decisions.get('critical', [])))
+                    with col2:
+                        st.metric("High Priority", len(pending_decisions.get('high', [])))
+                    with col3:
+                        st.metric("Medium Priority", len(pending_decisions.get('medium', [])))
+                    with col4:
+                        st.metric("Total Pending", sum(len(decisions) for decisions in pending_decisions.values()))
+                    
+                    # Display decisions by priority
+                    for priority, decisions in pending_decisions.items():
+                        if decisions:
+                            st.subheader(f"🚨 {priority.title()} Priority Decisions")
+                            
+                            for decision in decisions:
+                                with st.expander(f"📋 {decision.get('title', 'Untitled Decision')}"):
+                                    st.write(f"**Requesting Bot:** {decision.get('requesting_bot', 'Unknown')}")
+                                    st.write(f"**Category:** {decision.get('category', 'Unknown')}")
+                                    st.write(f"**Description:** {decision.get('description', 'No description')}")
+                                    st.write(f"**Financial Impact:** ${decision.get('financial_impact', 0):,}")
+                                    st.write(f"**Risk Level:** {decision.get('risk_level', 0)*100:.1f}%")
+                                    st.write(f"**Strategic Alignment:** {decision.get('strategic_alignment', 0)*100:.1f}%")
+                                    
+                                    col1, col2 = st.columns(2)
+                                    with col1:
+                                        if st.button(f"✅ Approve", key=f"approve_{decision.get('id')}"):
+                                            st.success("Decision approved!")
+                                    with col2:
+                                        if st.button(f"❌ Reject", key=f"reject_{decision.get('id')}"):
+                                            st.error("Decision rejected!")
+                
+                except Exception as e:
+                    st.error(f"Error loading decisions: {str(e)}")
+        else:
+            st.warning("CEO Portal not initialized")
     
-    elif view_mode == "Market Intelligence":
-        create_real_time_market_section()
+    with tab4:
+        st.header("🤝 Cross-Team Coordination")
+        
+        if st.session_state.coordinator:
+            with st.spinner("Loading coordination data..."):
+                try:
+                    coordination_data = run_async(st.session_state.coordinator.monitor_cross_team_performance())
+                    
+                    # Coordination metrics
+                    metrics = coordination_data.get('cross_team_metrics', {})
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Overall Alignment", f"{metrics.get('overall_alignment', 0)*100:.1f}%")
+                    with col2:
+                        st.metric("Knowledge Transfer", f"{metrics.get('knowledge_transfer_rate', 0)*100:.1f}%")
+                    with col3:
+                        st.metric("Synergy Realization", f"{metrics.get('synergy_realization', 0)*100:.1f}%")
+                    with col4:
+                        st.metric("Coordination Efficiency", f"{metrics.get('coordination_efficiency', 0)*100:.1f}%")
+                    
+                    # Synergy opportunities
+                    st.subheader("💡 Synergy Opportunities")
+                    opportunities = run_async(st.session_state.coordinator.identify_synergy_opportunities())
+                    
+                    if opportunities:
+                        for opportunity in opportunities[:5]:  # Show top 5
+                            with st.expander(f"🎯 {opportunity.title}"):
+                                st.write(f"**Teams Involved:** {', '.join(opportunity.teams_involved)}")
+                                st.write(f"**Type:** {opportunity.opportunity_type}")
+                                st.write(f"**Description:** {opportunity.description}")
+                                st.write(f"**Potential Value:** {opportunity.potential_value*100:.1f}%")
+                                st.write(f"**Success Probability:** {opportunity.success_probability*100:.1f}%")
+                                st.write(f"**Implementation Effort:** {opportunity.implementation_effort*100:.1f}%")
+                    else:
+                        st.info("No synergy opportunities identified yet.")
+                
+                except Exception as e:
+                    st.error(f"Error loading coordination data: {str(e)}")
+        else:
+            st.warning("Coordinator not initialized")
     
-    elif view_mode == "System Health":
-        create_system_health_section(dashboard)
+    with tab5:
+        st.header("🧠 Bot Builder Self-Improvement Center")
+        
+        st.markdown("""
+        **🎯 Recursive AI Enhancement**
+        
+        This is where Bot Builder achieves true self-awareness by using its own SDLC team to improve itself based on your feedback and requirements.
+        """)
+        
+        # Show current improvement tasks
+        if st.session_state.sdlc_team:
+            st.subheader("🚀 Active Self-Improvement Tasks")
+            
+            try:
+                # Get tasks related to self-improvement
+                improvement_tasks = []
+                for task_id, task in st.session_state.sdlc_team.tasks.items():
+                    if task.context.get('improvement_type') == 'recursive_enhancement':
+                        improvement_tasks.append(task)
+                
+                if improvement_tasks:
+                    for task in improvement_tasks:
+                        with st.expander(f"🔧 {task.title}"):
+                            st.write(f"**Status:** {task.status.value}")
+                            st.write(f"**Progress:** {task.progress_percentage}%")
+                            st.write(f"**Assigned Bot:** {task.assigned_bot}")
+                            st.write(f"**Priority:** {task.priority.value}")
+                            st.write(f"**Description:**")
+                            st.write(task.description)
+                            
+                            # Progress bar
+                            st.progress(task.progress_percentage / 100)
+                else:
+                    st.info("No active self-improvement tasks. Submit a request from the sidebar!")
+            
+            except Exception as e:
+                st.error(f"Error loading improvement tasks: {str(e)}")
+        
+        # Self-improvement ideas
+        st.subheader("💡 Suggested Improvements")
+        
+        improvement_ideas = [
+            "Add real-time notifications for critical decisions",
+            "Implement advanced bot performance analytics",
+            "Create automated report generation for CEO briefings",
+            "Enhance cross-team communication protocols",
+            "Add predictive task assignment algorithms",
+            "Implement voice command interface for CEO portal",
+            "Create mobile app for on-the-go management",
+            "Add AI-powered decision recommendation engine"
+        ]
+        
+        for idea in improvement_ideas:
+            if st.button(f"🚀 Implement: {idea}", key=f"idea_{idea}"):
+                success, message = run_async(
+                    submit_self_improvement_request(idea, "MEDIUM")
+                )
+                if success:
+                    st.success(f"✅ Improvement task created for: {idea}")
+                else:
+                    st.error(f"❌ {message}")
     
     # Footer
     st.markdown("---")
-    st.markdown(f"**Last Updated:** {st.session_state.last_refresh.strftime('%Y-%m-%d %H:%M:%S')}")
-    st.markdown("*CEO Command Center - Strategic AI Organization Management*")
+    st.markdown(f"**Last Updated:** {st.session_state.last_update.strftime('%Y-%m-%d %H:%M:%S')} | **Status:** {'🟢 Active' if st.session_state.organization_initialized else '🔴 Inactive'}")
 
 if __name__ == "__main__":
     main() 

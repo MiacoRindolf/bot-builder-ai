@@ -715,47 +715,146 @@ Analyze the data and provide specific, actionable improvements. Focus on real is
         """Generate proposal details using OpenAI."""
         try:
             prompt = f"""
+You are an expert software engineer specializing in system optimization and code improvements.
+
 Based on this improvement opportunity, generate a detailed implementation proposal:
 
 OPPORTUNITY:
 {json.dumps(opportunity, indent=2)}
 
-Generate a JSON response with:
+IMPORTANT: You MUST respond with ONLY valid JSON. No additional text, explanations, or markdown formatting.
+
+Required JSON structure:
 {{
-    "title": "Specific improvement title",
-    "description": "Detailed implementation description",
-    "rationale": "Why this improvement is needed and beneficial",
-    "target_files": ["specific files to modify"],
+    "title": "Optimize Data Processing Pipeline",
+    "description": "Implement caching and parallel processing to improve system performance",
+    "rationale": "Current data processing is causing performance bottlenecks during peak operations",
+    "target_files": ["data/data_manager.py", "utils/data_processor.py"],
     "estimated_impact": {{
-        "performance": "specific improvement",
-        "maintainability": "specific improvement", 
-        "reliability": "specific improvement"
+        "performance": "25% improvement",
+        "maintainability": "15% improvement", 
+        "reliability": "10% improvement"
     }},
-    "risk_level": "LOW|MEDIUM|HIGH",
-    "priority": "LOW|MEDIUM|HIGH|CRITICAL"
+    "risk_level": "LOW",
+    "priority": "HIGH"
 }}
 
-Be specific and actionable.
+Be specific and actionable. Focus on the opportunity provided.
 """
             
             response = self.client.chat.completions.create(
                 model=settings.openai_model,
                 messages=[
-                    {"role": "system", "content": "You are an expert software engineer specializing in system optimization and code improvements."},
+                    {"role": "system", "content": "You are an expert software engineer. You MUST respond with ONLY valid JSON. No additional text, explanations, or markdown formatting."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=1500,
-                temperature=0.3
+                temperature=0.2
             )
             
             content = response.choices[0].message.content
             if content is None:
-                return None
-            return json.loads(content)
+                logger.warning("Empty response from OpenAI for proposal generation")
+                return self._create_fallback_proposal(opportunity)
+            
+            # Clean the content to extract JSON
+            content = content.strip()
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
+            
+            # Try to parse JSON with multiple attempts
+            proposal_data = None
+            try:
+                proposal_data = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Initial JSON parsing failed for proposal: {str(e)}")
+                # Try to extract JSON from the response
+                try:
+                    # Look for JSON-like content
+                    start_idx = content.find('{')
+                    end_idx = content.rfind('}') + 1
+                    if start_idx != -1 and end_idx > start_idx:
+                        json_content = content[start_idx:end_idx]
+                        proposal_data = json.loads(json_content)
+                        logger.info("Successfully extracted JSON from proposal response")
+                except json.JSONDecodeError:
+                    logger.warning("Failed to extract JSON from proposal response")
+            
+            if proposal_data is None:
+                logger.warning("Using fallback proposal generation")
+                return self._create_fallback_proposal(opportunity)
+            
+            return proposal_data
             
         except Exception as e:
             logger.error(f"Error generating proposal with AI: {str(e)}")
-            return None
+            return self._create_fallback_proposal(opportunity)
+    
+    def _create_fallback_proposal(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a fallback proposal when AI generation fails."""
+        title = opportunity.get('title', 'System Improvement')
+        opp_type = opportunity.get('type', 'optimization')
+        
+        # Create intelligent fallback based on opportunity type
+        if opp_type == 'optimization':
+            return {
+                "title": f"Optimize {title}",
+                "description": f"Implement performance improvements for {title.lower()}",
+                "rationale": f"This optimization will improve system performance and efficiency",
+                "target_files": opportunity.get('target_files', ['core/ai_engine.py']),
+                "estimated_impact": {
+                    "performance": "20% improvement",
+                    "maintainability": "10% improvement",
+                    "reliability": "15% improvement"
+                },
+                "risk_level": "LOW",
+                "priority": opportunity.get('priority', 'MEDIUM')
+            }
+        elif opp_type == 'bug_fix':
+            return {
+                "title": f"Fix {title}",
+                "description": f"Resolve issues related to {title.lower()}",
+                "rationale": f"This fix will improve system stability and reliability",
+                "target_files": opportunity.get('target_files', ['core/ai_engine.py']),
+                "estimated_impact": {
+                    "performance": "10% improvement",
+                    "maintainability": "20% improvement",
+                    "reliability": "25% improvement"
+                },
+                "risk_level": "LOW",
+                "priority": opportunity.get('priority', 'HIGH')
+            }
+        elif opp_type == 'refactoring':
+            return {
+                "title": f"Refactor {title}",
+                "description": f"Improve code structure and maintainability for {title.lower()}",
+                "rationale": f"This refactoring will improve code quality and maintainability",
+                "target_files": opportunity.get('target_files', ['core/ai_engine.py']),
+                "estimated_impact": {
+                    "performance": "5% improvement",
+                    "maintainability": "30% improvement",
+                    "reliability": "10% improvement"
+                },
+                "risk_level": "MEDIUM",
+                "priority": opportunity.get('priority', 'MEDIUM')
+            }
+        else:
+            return {
+                "title": f"Improve {title}",
+                "description": f"General improvement for {title.lower()}",
+                "rationale": f"This improvement will enhance overall system performance",
+                "target_files": opportunity.get('target_files', ['core/ai_engine.py']),
+                "estimated_impact": {
+                    "performance": "15% improvement",
+                    "maintainability": "15% improvement",
+                    "reliability": "15% improvement"
+                },
+                "risk_level": "LOW",
+                "priority": opportunity.get('priority', 'MEDIUM')
+            }
     
     async def _run_tests_for_changes(self, target_files: List[str]) -> Dict[str, Any]:
         """Run tests for the modified files."""

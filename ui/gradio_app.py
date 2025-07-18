@@ -206,7 +206,6 @@ Need more help? Just ask in the chat!
         """Create the Gradio interface."""
         with gr.Blocks(
             title="Bot Builder AI",
-            theme=gr.themes.Soft(),
             css="""
             .gradio-container {
                 max-width: 1200px;
@@ -245,7 +244,7 @@ Need more help? Just ask in the chat!
                         height=400,
                         show_label=False,
                         container=True,
-                        bubble_full_width=False
+                        type="messages"
                     )
                     
                     # Message input
@@ -332,15 +331,7 @@ Need more help? Just ask in the chat!
                 outputs=[help_display, help_display]
             )
             
-            # Welcome message
-            chatbot.append([
-                None,
-                "🤖 Welcome to Bot Builder AI! I'm here to help you create and manage AI Employees for your hedge fund. You can:\n\n"
-                "• Create new AI Employees using the form\n"
-                "• Ask me about performance and optimization\n"
-                "• Get system status and help\n\n"
-                "What would you like to do today?"
-            ])
+            # Welcome message will be handled by the chat interface
         
         return interface
 

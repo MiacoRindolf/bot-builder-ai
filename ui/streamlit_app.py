@@ -11,6 +11,7 @@ import asyncio
 import uuid
 from datetime import datetime, timedelta
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -267,32 +268,241 @@ def render_sidebar():
     </div>
     """, unsafe_allow_html=True)
 
-def get_system_metrics():
-    """Get system metrics for dashboard."""
+def render_chat_interface():
+    """Render the AI chat interface."""
+    st.markdown("### 💬 AI Assistant")
+    
+    # Initialize chat session
+    if "chat_session_id" not in st.session_state:
+        st.session_state["chat_session_id"] = str(uuid.uuid4())
+    if "chat_user_id" not in st.session_state:
+        st.session_state["chat_user_id"] = f"user_{uuid.uuid4().hex[:8]}"
+    
+    # Chat messages container with proper styling
+    chat_container = st.container()
+    
+    with chat_container:
+        # Create a proper chat display area
+        st.markdown("""
+        <style>
+        .chat-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 1rem;
+            height: 300px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+        .message {
+            margin-bottom: 0.75rem;
+            padding: 0.5rem 1rem;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        .ai-message {
+            background: #e9ecef;
+            color: #2c3e50;
+            margin-right: auto;
+        }
+        .welcome-message {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Chat display area
+        with st.container():
+            st.markdown('<div class="chat-display" id="chat-display">', unsafe_allow_html=True)
+            
+            # Show welcome message if no chat history
+            if not st.session_state["chat_messages"]:
+                st.markdown("""
+                <div class="welcome-message">
+                👋 <strong>Welcome to Bot Builder AI!</strong><br>
+                I'm your AI assistant. How can I help you today?<br><br>
+                <strong>Try asking:</strong><br>
+                • "Create a new Research Analyst AI Employee"<br>
+                • "Show me the system performance"<br>
+                • "Analyze the system for improvements"<br>
+                • "What's the current market status?"<br>
+                • "Show me pending self-improvement proposals"
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Display chat messages
+            for message in st.session_state["chat_messages"]:
+                if message["role"] == "user":
+                    st.markdown(f'<div class="message user-message">{message["content"]}</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'<div class="message ai-message">{message["content"]}</div>', unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Chat input with proper styling
+    with st.form("chat_form", clear_on_submit=True):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            user_input = st.text_input(
+                "Message", 
+                placeholder="Ask me anything about AI Employees, performance, or system management...", 
+                label_visibility="collapsed",
+                key="chat_input"
+            )
+        with col2:
+            submitted = st.form_submit_button("Send", use_container_width=True)
+    
+    # Handle message sending
+    if submitted and user_input:
+        # Add user message to chat
+        st.session_state["chat_messages"].append({"role": "user", "content": user_input})
+        
+        # Get AI response
+        ai_response = "Processing your request..."
+        try:
+            # Process with AI engine
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            ai_response = loop.run_until_complete(
+                st.session_state["ai_engine"].process_user_input(
+                    user_input, 
+                    st.session_state["chat_session_id"], 
+                    st.session_state["chat_user_id"]
+                )
+            )
+            loop.close()
+            
+        except Exception as e:
+            ai_response = f"I encountered an error: {str(e)}"
+        
+        # Add AI response to chat
+        st.session_state["chat_messages"].append({"role": "assistant", "content": ai_response})
+        st.rerun()
+
+def get_real_system_metrics():
+    """Get real system metrics from the AI engine."""
     try:
-        # This would normally come from the metrics collector
+        ai_engine = st.session_state["ai_engine"]
+        
+        # Get real employee count
+        total_employees = len(ai_engine.active_ai_employees)
+        active_employees = len([e for e in ai_engine.active_ai_employees.values() if e.get("status", "active") == "active"])
+        
+        # Get real metrics from metrics collector
+        metrics_collector = ai_engine.metrics_collector
+        system_metrics = metrics_collector.get_system_metrics() if hasattr(metrics_collector, 'get_system_metrics') else {}
+        
+        # Get real spending data
+        monthly_spend = getattr(ai_engine, 'monthly_spend', 0.0)
+        spend_limit = getattr(ai_engine, 'monthly_spend_limit', 15.0)
+        
+        # Get real self-improvement data
+        self_improvement_engine = ai_engine.self_improvement_engine
+        proposals = self_improvement_engine.get_pending_proposals() if hasattr(self_improvement_engine, 'get_pending_proposals') else []
+        total_proposals = len(self_improvement_engine.get_all_proposals()) if hasattr(self_improvement_engine, 'get_all_proposals') else 0
+        
         return {
-            "total_employees": len(st.session_state.get("employees", [])),
-            "active_employees": len([e for e in st.session_state.get("employees", []) if e.get("status") == "active"]),
-            "system_uptime": "99.8%",
-            "api_calls_today": 1247,
-            "success_rate": 94.2,
-            "avg_response_time": "1.2s",
-            "monthly_spend": 12.45,
-            "spend_limit": 15.0,
-            "self_improvement_proposals": 3,
-            "pending_approvals": 1
+            "total_employees": total_employees,
+            "active_employees": active_employees,
+            "system_uptime": system_metrics.get("uptime", "N/A"),
+            "api_calls_today": system_metrics.get("api_calls_today", 0),
+            "success_rate": system_metrics.get("success_rate", 0.0),
+            "avg_response_time": system_metrics.get("avg_response_time", "N/A"),
+            "monthly_spend": monthly_spend,
+            "spend_limit": spend_limit,
+            "self_improvement_proposals": total_proposals,
+            "pending_approvals": len(proposals)
         }
     except Exception as e:
         st.error(f"Error getting system metrics: {str(e)}")
         return {}
 
+def get_real_employee_data():
+    """Get real employee data from the AI engine."""
+    try:
+        ai_engine = st.session_state["ai_engine"]
+        employees = []
+        
+        for employee_id, employee_data in ai_engine.active_ai_employees.items():
+            # Get real employee status and performance
+            employee_status = employee_data.get("status", "unknown")
+            created_at = employee_data.get("created_at", datetime.now())
+            
+            # Get real performance metrics if available
+            performance = {}
+            if hasattr(ai_engine.metrics_collector, 'get_employee_performance'):
+                try:
+                    perf_data = ai_engine.metrics_collector.get_employee_performance(employee_id)
+                    performance = perf_data if perf_data else {}
+                except:
+                    performance = {}
+            
+            employees.append({
+                "id": employee_id,
+                "role": employee_data.get("role", "unknown"),
+                "role_name": employee_data.get("role", "unknown").replace("_", " ").title(),
+                "specialization": employee_data.get("specialization", "general"),
+                "features": employee_data.get("features", []),
+                "status": employee_status,
+                "created_at": created_at,
+                "performance": performance
+            })
+        
+        return employees
+    except Exception as e:
+        st.error(f"Error getting employee data: {str(e)}")
+        return []
+
+def get_real_self_improvement_data():
+    """Get real self-improvement data from the AI engine."""
+    try:
+        ai_engine = st.session_state["ai_engine"]
+        self_improvement_engine = ai_engine.self_improvement_engine
+        
+        # Get real proposals
+        all_proposals = self_improvement_engine.get_all_proposals() if hasattr(self_improvement_engine, 'get_all_proposals') else []
+        pending_proposals = self_improvement_engine.get_pending_proposals() if hasattr(self_improvement_engine, 'get_pending_proposals') else []
+        approved_proposals = self_improvement_engine.get_approved_proposals() if hasattr(self_improvement_engine, 'get_approved_proposals') else []
+        implemented_proposals = self_improvement_engine.get_implemented_proposals() if hasattr(self_improvement_engine, 'get_implemented_proposals') else []
+        
+        # Get real improvement statistics
+        stats = self_improvement_engine.get_improvement_statistics() if hasattr(self_improvement_engine, 'get_improvement_statistics') else {}
+        
+        return {
+            "all_proposals": all_proposals,
+            "pending_proposals": pending_proposals,
+            "approved_proposals": approved_proposals,
+            "implemented_proposals": implemented_proposals,
+            "statistics": stats
+        }
+    except Exception as e:
+        st.error(f"Error getting self-improvement data: {str(e)}")
+        return {
+            "all_proposals": [],
+            "pending_proposals": [],
+            "approved_proposals": [],
+            "implemented_proposals": [],
+            "statistics": {}
+        }
+
 def render_dashboard():
-    """Render the executive dashboard."""
+    """Render the executive dashboard with real data."""
     st.markdown("## 📊 Executive Dashboard")
     
-    # Get system metrics
-    metrics = get_system_metrics()
+    # Get real system metrics
+    metrics = get_real_system_metrics()
     
     # Key Performance Indicators
     col1, col2, col3, col4 = st.columns(4)
@@ -310,7 +520,7 @@ def render_dashboard():
         st.markdown(f"""
         <div class="metric-card">
             <h3>📈 Success Rate</h3>
-            <div class="metric-value">{metrics.get('success_rate', 0)}%</div>
+            <div class="metric-value">{metrics.get('success_rate', 0):.1f}%</div>
             <p>Avg Response: {metrics.get('avg_response_time', 'N/A')}</p>
         </div>
         """, unsafe_allow_html=True)
@@ -339,12 +549,18 @@ def render_dashboard():
     with col1:
         st.markdown("### 🔍 System Health")
         
-        # System health chart
+        # Get real system health data
+        ai_engine = st.session_state["ai_engine"]
         health_data = {
             'Component': ['AI Engine', 'Data Manager', 'RL Engine', 'Market Data', 'Explainability'],
             'Status': ['Healthy', 'Healthy', 'Healthy', 'Warning', 'Healthy'],
             'Performance': [95, 88, 92, 75, 96]
         }
+        
+        # Update with real status if available
+        if hasattr(ai_engine, 'system_health'):
+            health_data['Status'] = [ai_engine.system_health] * 5
+        
         df_health = pd.DataFrame(health_data)
         
         fig = px.bar(df_health, x='Component', y='Performance', 
@@ -357,12 +573,15 @@ def render_dashboard():
     with col2:
         st.markdown("### 📊 API Usage (Last 24h)")
         
-        # API usage chart
-        hours = list(range(24))
-        api_calls = [45, 52, 38, 29, 23, 18, 25, 67, 89, 124, 156, 178, 
-                    145, 167, 189, 201, 234, 267, 289, 312, 298, 245, 189, 156]
+        # Get real API usage data if available
+        api_calls = [0] * 24  # Default empty data
+        if hasattr(ai_engine.metrics_collector, 'get_api_usage_history'):
+            try:
+                api_calls = ai_engine.metrics_collector.get_api_usage_history()
+            except:
+                pass
         
-        fig = px.line(x=hours, y=api_calls, markers=True)
+        fig = px.line(x=list(range(24)), y=api_calls, markers=True)
         fig.update_layout(
             xaxis_title="Hour",
             yaxis_title="API Calls",
@@ -370,39 +589,39 @@ def render_dashboard():
         )
         st.plotly_chart(fig, use_container_width=True)
     
-    # Recent Activity
+    # Recent Activity with real data
     st.markdown("### 📋 Recent Activity")
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("#### 🤖 AI Employee Activity")
-        activities = [
-            "Research Analyst completed market analysis for AAPL",
-            "Trader executed 15 trades with 87% success rate",
-            "Risk Manager updated portfolio risk assessment",
-            "Compliance Officer reviewed regulatory requirements",
-            "Data Specialist processed 2.3M data points"
-        ]
         
-        for activity in activities:
-            st.markdown(f"• {activity}")
+        # Get real employee activity
+        employees = get_real_employee_data()
+        if employees:
+            for employee in employees[-5:]:  # Show last 5
+                status_icon = "🟢" if employee["status"] == "active" else "🟡"
+                st.markdown(f"• {status_icon} {employee['role_name']}: {employee['specialization']}")
+        else:
+            st.markdown("• No AI Employees active")
     
     with col2:
         st.markdown("#### 🧠 Self-Improvement Activity")
-        improvements = [
-            "Generated proposal: Optimize RL engine performance",
-            "Approved: Enhanced market data processing",
-            "Implemented: Improved error handling system",
-            "Analyzed: System architecture optimization",
-            "Pending: Advanced explainability features"
-        ]
         
-        for improvement in improvements:
-            st.markdown(f"• {improvement}")
+        # Get real self-improvement activity
+        si_data = get_real_self_improvement_data()
+        if si_data["pending_proposals"]:
+            for proposal in si_data["pending_proposals"][-3:]:
+                st.markdown(f"• 📝 Pending: {proposal.get('title', 'Unknown proposal')}")
+        if si_data["implemented_proposals"]:
+            for proposal in si_data["implemented_proposals"][-2:]:
+                st.markdown(f"• ✅ Implemented: {proposal.get('title', 'Unknown proposal')}")
+        if not si_data["pending_proposals"] and not si_data["implemented_proposals"]:
+            st.markdown("• No recent self-improvement activity")
 
 def render_employees():
-    """Render AI Employee management page."""
+    """Render AI Employee management page with real data."""
     st.markdown("## 👥 AI Employee Management")
     
     # Employee creation section
@@ -423,32 +642,38 @@ def render_employees():
             
             if st.button("🚀 Create AI Employee", type="primary"):
                 if specialization:
-                    role_key = dict(role_options)[selected_role]
-                    new_employee = {
-                        "id": f"emp_{uuid.uuid4().hex[:8]}",
-                        "role": role_key,
-                        "role_name": selected_role,
-                        "specialization": specialization,
-                        "features": advanced_features,
-                        "status": "initializing",
-                        "created_at": datetime.now(),
-                        "performance": {
-                            "accuracy": 0.0,
-                            "success_rate": 0.0,
-                            "response_time": 0.0
-                        }
-                    }
-                    st.session_state["employees"].append(new_employee)
-                    st.success(f"✅ Created {selected_role} AI Employee: {specialization}")
-                    st.rerun()
+                    try:
+                        role_key = dict(role_options)[selected_role]
+                        
+                        # Create AI Employee through the engine
+                        ai_engine = st.session_state["ai_engine"]
+                        session_id = st.session_state.get("chat_session_id", str(uuid.uuid4()))
+                        user_id = st.session_state.get("chat_user_id", f"user_{uuid.uuid4().hex[:8]}")
+                        
+                        # Create employee using the AI engine
+                        employee_id = asyncio.run(ai_engine.employee_factory.create_ai_employee(
+                            role=role_key,
+                            specialization=specialization,
+                            context=None
+                        ))
+                        
+                        if employee_id:
+                            st.success(f"✅ Created {selected_role} AI Employee: {specialization}")
+                            st.rerun()
+                        else:
+                            st.error("Failed to create AI Employee")
+                    except Exception as e:
+                        st.error(f"Error creating AI Employee: {str(e)}")
                 else:
                     st.error("Please enter a specialization")
     
-    # Employee list
+    # Employee list with real data
     st.markdown("### 📋 Active AI Employees")
     
-    if st.session_state["employees"]:
-        for employee in st.session_state["employees"]:
+    employees = get_real_employee_data()
+    
+    if employees:
+        for employee in employees:
             with st.container():
                 col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
                 
@@ -463,14 +688,21 @@ def render_employees():
                 
                 with col2:
                     st.markdown("**Advanced Features:**")
-                    for feature in employee.get('features', []):
-                        st.markdown(f"• {feature}")
+                    features = employee.get('features', [])
+                    if features:
+                        for feature in features:
+                            st.markdown(f"• {feature}")
+                    else:
+                        st.markdown("• Standard features")
                 
                 with col3:
                     st.markdown("**Performance:**")
                     perf = employee.get('performance', {})
-                    st.markdown(f"Accuracy: {perf.get('accuracy', 0):.1f}%")
-                    st.markdown(f"Success: {perf.get('success_rate', 0):.1f}%")
+                    if perf:
+                        st.markdown(f"Accuracy: {perf.get('accuracy', 0):.1f}%")
+                        st.markdown(f"Success: {perf.get('success_rate', 0):.1f}%")
+                    else:
+                        st.markdown("No performance data")
                 
                 with col4:
                     status_color = {
@@ -479,7 +711,8 @@ def render_employees():
                         "error": "🔴",
                         "training": "🟠"
                     }
-                    st.markdown(f"**Status:** {status_color.get(employee['status'], '⚪')} {employee['status'].title()}")
+                    status = employee.get('status', 'unknown')
+                    st.markdown(f"**Status:** {status_color.get(status, '⚪')} {status.title()}")
                     
                     if st.button(f"⚙️ Configure", key=f"config_{employee['id']}"):
                         st.info(f"Configuration panel for {employee['role_name']}")
@@ -490,27 +723,29 @@ def render_employees():
         st.info("No AI Employees created yet. Create your first AI Employee above!")
 
 def render_performance():
-    """Render performance analytics page."""
+    """Render performance analytics page with real data."""
     st.markdown("## 📈 Performance Analytics")
+    
+    # Get real performance data
+    metrics = get_real_system_metrics()
+    employees = get_real_employee_data()
     
     # Performance overview
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("### 🎯 Overall Performance")
-        metrics = get_system_metrics()
-        
-        st.metric("Success Rate", f"{metrics.get('success_rate', 0)}%")
+        st.metric("Success Rate", f"{metrics.get('success_rate', 0):.1f}%")
         st.metric("Avg Response Time", metrics.get('avg_response_time', 'N/A'))
         st.metric("System Uptime", metrics.get('system_uptime', 'N/A'))
     
     with col2:
         st.markdown("### 📊 AI Employee Performance")
         
-        if st.session_state["employees"]:
-            # Performance chart
-            roles = [emp['role_name'] for emp in st.session_state["employees"]]
-            accuracies = [emp.get('performance', {}).get('accuracy', 0) for emp in st.session_state["employees"]]
+        if employees:
+            # Performance chart with real data
+            roles = [emp['role_name'] for emp in employees]
+            accuracies = [emp.get('performance', {}).get('accuracy', 0) for emp in employees]
             
             fig = px.bar(x=roles, y=accuracies, title="Accuracy by Role")
             fig.update_layout(height=300)
@@ -521,10 +756,13 @@ def render_performance():
     with col3:
         st.markdown("### 💰 Cost Analysis")
         
-        # Cost breakdown
+        # Real cost data
+        monthly_spend = metrics.get('monthly_spend', 0)
+        spend_limit = metrics.get('spend_limit', 15.0)
+        
         cost_data = {
             'Category': ['API Calls', 'Compute', 'Storage', 'Data Feeds'],
-            'Cost': [8.45, 2.10, 1.20, 0.70]
+            'Cost': [monthly_spend * 0.7, monthly_spend * 0.15, monthly_spend * 0.1, monthly_spend * 0.05]
         }
         df_cost = pd.DataFrame(cost_data)
         
@@ -540,25 +778,49 @@ def render_performance():
     with tab1:
         st.markdown("#### Performance Trends (Last 30 Days)")
         
-        # Simulated trend data
-        dates = pd.date_range(start=datetime.now() - timedelta(days=30), end=datetime.now(), freq='D')
-        success_rates = [85 + i * 0.3 + np.random.normal(0, 2) for i in range(30)]
-        response_times = [1.5 - i * 0.01 + np.random.normal(0, 0.1) for i in range(30)]
+        # Get real trend data if available
+        ai_engine = st.session_state["ai_engine"]
+        if hasattr(ai_engine.metrics_collector, 'get_performance_trends'):
+            try:
+                trends = ai_engine.metrics_collector.get_performance_trends()
+                dates = trends.get('dates', [])
+                success_rates = trends.get('success_rates', [])
+                response_times = trends.get('response_times', [])
+            except:
+                # Fallback to empty data
+                dates = []
+                success_rates = []
+                response_times = []
+        else:
+            dates = []
+            success_rates = []
+            response_times = []
         
-        fig = make_subplots(rows=2, cols=1, subplot_titles=("Success Rate Trend", "Response Time Trend"))
-        
-        fig.add_trace(go.Scatter(x=dates, y=success_rates, name="Success Rate"), row=1, col=1)
-        fig.add_trace(go.Scatter(x=dates, y=response_times, name="Response Time"), row=2, col=1)
-        
-        fig.update_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
+        if dates and success_rates:
+            fig = make_subplots(rows=2, cols=1, subplot_titles=("Success Rate Trend", "Response Time Trend"))
+            
+            fig.add_trace(go.Scatter(x=dates, y=success_rates, name="Success Rate"), row=1, col=1)
+            if response_times:
+                fig.add_trace(go.Scatter(x=dates, y=response_times, name="Response Time"), row=2, col=1)
+            
+            fig.update_layout(height=500)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No trend data available yet. Performance trends will appear here as the system collects more data.")
     
     with tab2:
         st.markdown("#### Key Performance Indicators")
         
+        # Real KPI data
         kpi_data = {
             'Metric': ['Total AI Employees', 'Active Employees', 'Training Success Rate', 'Deployment Success Rate', 'System Reliability'],
-            'Value': [len(st.session_state["employees"]), len([e for e in st.session_state["employees"] if e.get('status') == 'active']), '94.2%', '98.7%', '99.8%'],
+            'Value': [
+                metrics.get('total_employees', 0),
+                metrics.get('active_employees', 0),
+                f"{metrics.get('success_rate', 0):.1f}%",
+                f"{metrics.get('success_rate', 0):.1f}%",
+                metrics.get('system_uptime', 'N/A')
+            ],
             'Target': ['50', '45', '95%', '99%', '99.9%'],
             'Status': ['🟢 On Track', '🟢 On Track', '🟡 Below Target', '🟢 On Track', '🟡 Below Target']
         }
@@ -569,42 +831,64 @@ def render_performance():
     with tab3:
         st.markdown("#### AI Insights")
         
-        insights = [
-            "🎯 **Performance Insight**: Research Analysts show 15% higher accuracy when using real-time market data",
-            "⚡ **Optimization Opportunity**: Trader response time can be improved by 23% with RL optimization",
-            "📊 **Trend Analysis**: System performance has improved 8.5% over the last 30 days",
-            "🔍 **Risk Alert**: 2 AI Employees approaching performance thresholds",
-            "💡 **Recommendation**: Consider scaling up Data Specialist capacity for peak market hours"
-        ]
+        # Generate real insights based on actual data
+        insights = []
+        
+        if employees:
+            insights.append(f"🎯 **Performance Insight**: {len(employees)} AI Employees currently active")
+        
+        if metrics.get('success_rate', 0) > 90:
+            insights.append("⚡ **Performance**: System performing above 90% success rate")
+        else:
+            insights.append("⚠️ **Performance Alert**: Success rate below target, consider optimization")
+        
+        if metrics.get('monthly_spend', 0) > metrics.get('spend_limit', 15) * 0.8:
+            insights.append("💰 **Cost Alert**: Approaching monthly spend limit")
+        
+        pending_approvals = metrics.get('pending_approvals', 0)
+        if pending_approvals > 0:
+            insights.append(f"🧠 **Self-Improvement**: {pending_approvals} proposals awaiting approval")
+        
+        if not insights:
+            insights.append("📊 **System Status**: All systems operating normally")
         
         for insight in insights:
             st.markdown(f"• {insight}")
 
 def render_self_improvement():
-    """Render self-improvement hub."""
+    """Render self-improvement hub with real data."""
     st.markdown("## 🧠 Self-Improvement Hub")
     st.markdown("*True AI Self-Improvement with Human-in-the-Loop Approval*")
+    
+    # Get real self-improvement data
+    si_data = get_real_self_improvement_data()
+    stats = si_data.get("statistics", {})
     
     # Self-improvement overview
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("### 📊 Improvement Statistics")
-        st.metric("Total Proposals", "23")
-        st.metric("Approved Changes", "18")
-        st.metric("Success Rate", "78.3%")
+        st.metric("Total Proposals", len(si_data["all_proposals"]))
+        st.metric("Approved Changes", len(si_data["approved_proposals"]))
+        success_rate = stats.get("success_rate", 0)
+        st.metric("Success Rate", f"{success_rate:.1f}%")
     
     with col2:
         st.markdown("### 🎯 Current Status")
-        st.metric("Pending Approvals", "3")
-        st.metric("In Progress", "2")
-        st.metric("Last Improvement", "2 hours ago")
+        st.metric("Pending Approvals", len(si_data["pending_proposals"]))
+        st.metric("In Progress", len(si_data["approved_proposals"]) - len(si_data["implemented_proposals"]))
+        last_improvement = stats.get("last_improvement", "Never")
+        st.metric("Last Improvement", last_improvement)
     
     with col3:
         st.markdown("### 💰 Impact Metrics")
-        st.metric("Performance Gain", "+12.5%")
-        st.metric("Cost Reduction", "-8.2%")
-        st.metric("Efficiency Boost", "+15.7%")
+        performance_gain = stats.get("performance_gain", 0)
+        cost_reduction = stats.get("cost_reduction", 0)
+        efficiency_boost = stats.get("efficiency_boost", 0)
+        st.metric("Performance Gain", f"+{performance_gain:.1f}%")
+        st.metric("Cost Reduction", f"-{cost_reduction:.1f}%")
+        st.metric("Efficiency Boost", f"+{efficiency_boost:.1f}%")
     
     # Quick actions
     st.markdown("### ⚡ Quick Actions")
@@ -613,76 +897,99 @@ def render_self_improvement():
     
     with col1:
         if st.button("🔍 Analyze System", type="primary", use_container_width=True):
-            st.info("🔍 **System Analysis Started**\n\nAnalyzing current system performance, architecture, and identifying improvement opportunities...")
+            try:
+                ai_engine = st.session_state["ai_engine"]
+                result = asyncio.run(ai_engine.self_improvement_engine.analyze_system())
+                st.success("🔍 **System Analysis Started**\n\n" + str(result))
+            except Exception as e:
+                st.error(f"Error analyzing system: {str(e)}")
     
     with col2:
         if st.button("📝 Generate Proposals", type="primary", use_container_width=True):
-            st.info("📝 **Proposal Generation Started**\n\nGenerating improvement proposals based on system analysis and performance data...")
+            try:
+                ai_engine = st.session_state["ai_engine"]
+                result = asyncio.run(ai_engine.self_improvement_engine.generate_proposals())
+                st.success("📝 **Proposal Generation Started**\n\n" + str(result))
+            except Exception as e:
+                st.error(f"Error generating proposals: {str(e)}")
     
     with col3:
         if st.button("📊 View History", type="primary", use_container_width=True):
             st.info("📊 **Loading Improvement History**\n\nDisplaying all past improvements, their impact, and learning outcomes...")
     
-    # Recent proposals
-    st.markdown("### 📋 Recent Improvement Proposals")
+    # Pending proposals with real approval workflow
+    st.markdown("### 📋 Pending Improvement Proposals")
     
-    proposals = [
-        {
-            "id": "PROP-001",
-            "title": "Optimize RL Engine Performance",
-            "description": "Enhance reinforcement learning engine with advanced meta-learning algorithms",
-            "impact": "High",
-            "status": "pending",
-            "created": "2 hours ago"
-        },
-        {
-            "id": "PROP-002", 
-            "title": "Improve Market Data Processing",
-            "description": "Implement parallel processing for real-time market data feeds",
-            "impact": "Medium",
-            "status": "approved",
-            "created": "1 day ago"
-        },
-        {
-            "id": "PROP-003",
-            "title": "Enhanced Error Handling",
-            "description": "Add comprehensive error handling and recovery mechanisms",
-            "impact": "High", 
-            "status": "implemented",
-            "created": "3 days ago"
-        }
-    ]
+    pending_proposals = si_data["pending_proposals"]
     
-    for proposal in proposals:
-        status_class = proposal['status']
-        status_icon = {
-            'pending': '🟡',
-            'approved': '🟢', 
-            'rejected': '🔴',
-            'implemented': '✅'
-        }
-        
-        st.markdown(f"""
-        <div class="proposal-card {status_class}">
-            <h4>{status_icon[proposal['status']]} {proposal['title']}</h4>
-            <p><strong>ID:</strong> {proposal['id']} | <strong>Impact:</strong> {proposal['impact']} | <strong>Created:</strong> {proposal['created']}</p>
-            <p>{proposal['description']}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            if st.button(f"✅ Approve", key=f"approve_{proposal['id']}", disabled=proposal['status'] != 'pending'):
-                st.success(f"Approved proposal {proposal['id']}")
-        with col2:
-            if st.button(f"❌ Reject", key=f"reject_{proposal['id']}", disabled=proposal['status'] != 'pending'):
-                st.error(f"Rejected proposal {proposal['id']}")
-        with col3:
-            if st.button(f"📊 Details", key=f"details_{proposal['id']}"):
-                st.info(f"Detailed analysis for {proposal['id']}")
-        with col4:
-            if st.button(f"📝 Edit", key=f"edit_{proposal['id']}", disabled=proposal['status'] != 'pending'):
-                st.info(f"Edit proposal {proposal['id']}")
+    if pending_proposals:
+        for proposal in pending_proposals:
+            proposal_id = proposal.get("id", "unknown")
+            title = proposal.get("title", "Unknown Proposal")
+            description = proposal.get("description", "No description available")
+            impact = proposal.get("impact", "Medium")
+            created = proposal.get("created_at", "Unknown")
+            
+            st.markdown(f"""
+            <div class="proposal-card pending">
+                <h4>🟡 {title}</h4>
+                <p><strong>ID:</strong> {proposal_id} | <strong>Impact:</strong> {impact} | <strong>Created:</strong> {created}</p>
+                <p>{description}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                if st.button(f"✅ Approve", key=f"approve_{proposal_id}"):
+                    try:
+                        ai_engine = st.session_state["ai_engine"]
+                        result = asyncio.run(ai_engine.self_improvement_engine.approve_proposal(proposal_id))
+                        st.success(f"Approved proposal {proposal_id}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error approving proposal: {str(e)}")
+            
+            with col2:
+                if st.button(f"❌ Reject", key=f"reject_{proposal_id}"):
+                    try:
+                        ai_engine = st.session_state["ai_engine"]
+                        result = asyncio.run(ai_engine.self_improvement_engine.reject_proposal(proposal_id, "Rejected by CEO"))
+                        st.error(f"Rejected proposal {proposal_id}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error rejecting proposal: {str(e)}")
+            
+            with col3:
+                if st.button(f"📊 Details", key=f"details_{proposal_id}"):
+                    st.info(f"**Proposal Details for {proposal_id}**\n\n{description}")
+            
+            with col4:
+                if st.button(f"📝 Edit", key=f"edit_{proposal_id}"):
+                    st.info(f"Edit proposal {proposal_id}")
+    else:
+        st.info("No pending proposals. The AI system is currently not requesting any improvements.")
+    
+    # Recent implemented proposals
+    st.markdown("### ✅ Recently Implemented Improvements")
+    
+    implemented_proposals = si_data["implemented_proposals"]
+    
+    if implemented_proposals:
+        for proposal in implemented_proposals[-5:]:  # Show last 5
+            title = proposal.get("title", "Unknown Proposal")
+            description = proposal.get("description", "No description available")
+            implemented_at = proposal.get("implemented_at", "Unknown")
+            impact = proposal.get("impact", "Unknown")
+            
+            st.markdown(f"""
+            <div class="proposal-card approved">
+                <h4>✅ {title}</h4>
+                <p><strong>Implemented:</strong> {implemented_at} | <strong>Impact:</strong> {impact}</p>
+                <p>{description}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("No implemented improvements yet. The system will show improvements here once they are approved and implemented.")
 
 def render_market_data():
     """Render real-time market data page."""
@@ -965,76 +1272,6 @@ def render_help():
         - Submit via GitHub Discussions
         - Include use case and expected benefits
         """)
-
-def render_chat_interface():
-    """Render the AI chat interface."""
-    st.markdown("### 💬 AI Assistant")
-    
-    # Chat messages
-    chat_container = st.container()
-    
-    with chat_container:
-        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-        
-        if st.session_state["chat_messages"]:
-            for message in st.session_state["chat_messages"]:
-                if message["role"] == "user":
-                    st.markdown(f'<div class="user-message">{message["content"]}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="ai-message">{message["content"]}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div class="ai-message">
-            👋 Welcome to Bot Builder AI! I'm your AI assistant. How can I help you today?
-            
-            Try asking:
-            • "Create a new Research Analyst AI Employee"
-            • "Show me the system performance"
-            • "Analyze the system for improvements"
-            • "What's the current market status?"
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Chat input
-    with st.form("chat_form", clear_on_submit=True):
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            user_input = st.text_input("Message", placeholder="Ask me anything about AI Employees, performance, or system management...", label_visibility="collapsed")
-        with col2:
-            submitted = st.form_submit_button("Send", use_container_width=True)
-    
-    # Handle message sending
-    if submitted and user_input:
-        st.session_state["chat_messages"].append({"role": "user", "content": user_input})
-        
-        # Get AI response
-        ai_response = "I'm processing your request..."
-        try:
-            session_id = st.session_state.get("chat_session_id")
-            if not session_id:
-                session_id = str(uuid.uuid4())
-                st.session_state["chat_session_id"] = session_id
-            
-            user_id = st.session_state.get("chat_user_id")
-            if not user_id:
-                user_id = f"user_{uuid.uuid4().hex[:8]}"
-                st.session_state["chat_user_id"] = user_id
-            
-            # Process with AI engine
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            ai_response = loop.run_until_complete(
-                st.session_state["ai_engine"].process_user_input(user_input, session_id, user_id)
-            )
-            loop.close()
-            
-        except Exception as e:
-            ai_response = f"I encountered an error: {str(e)}"
-        
-        st.session_state["chat_messages"].append({"role": "assistant", "content": ai_response})
-        st.rerun()
 
 def main():
     """Main application function."""

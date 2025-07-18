@@ -90,6 +90,12 @@ class Settings(BaseModel):
     debug_mode: bool = os.getenv("DEBUG_MODE", "false").lower() == "true"
     enable_hot_reload: bool = os.getenv("ENABLE_HOT_RELOAD", "true").lower() == "true"
     test_mode: bool = os.getenv("TEST_MODE", "false").lower() == "true"
+    demo_mode: bool = os.getenv("DEMO_MODE", "true").lower() == "true"  # Enable demo mode by default
+    
+    # Spending Protection
+    monthly_spend_limit: float = float(os.getenv("MONTHLY_SPEND_LIMIT", 15))  # $15 max per month
+    enable_spend_tracking: bool = os.getenv("ENABLE_SPEND_TRACKING", "true").lower() == "true"
+    spend_warning_threshold: float = float(os.getenv("SPEND_WARNING_THRESHOLD", "120"))  # Warn at $12
     
     # AI Employee Role Configurations
     ai_employee_roles: Dict[str, Dict[str, Any]] = {

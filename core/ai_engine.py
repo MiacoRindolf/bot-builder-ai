@@ -82,7 +82,14 @@ class AIEngine:
         # Explainability state
         self.explainability_enabled = True
         self.explanation_history: List[ExplanationResult] = []
-        
+
+        # Spending tracking
+        self.monthly_spend = 0.0
+        self.spend_tracking_enabled = settings.enable_spend_tracking
+        self.monthly_spend_limit = settings.monthly_spend_limit
+        self.spend_warning_threshold = settings.spend_warning_threshold
+        self.current_month = datetime.now().strftime("%Y-%m")
+
         logger.info("AI Engine initialized successfully with Advanced RL, Real-time Data, and Explainability capabilities")
     
     async def process_user_input(self, user_input: str, session_id: str, user_id: str) -> str:
@@ -190,9 +197,25 @@ class AIEngine:
             Intent analysis with action and parameters
         """
         try:
+            # Spending tracking: reset if new month
+            now_month = datetime.now().strftime("%Y-%m")
+            if self.current_month != now_month:
+                self.current_month = now_month
+                self.monthly_spend = 0.0
+
+            # Block if over limit
+            if self.spend_tracking_enabled and self.monthly_spend >= self.monthly_spend_limit:
+                logger.warning(f"Monthly spend limit (${self.monthly_spend_limit}) reached. Blocking OpenAI API calls.")
+                return {
+                    "action": "blocked",
+                    "confidence": 1.0,
+                    "parameters": {},
+                    "error": f"Monthly spend limit (${self.monthly_spend_limit}) reached. No further OpenAI API calls will be made this month."
+                }
+
             # Prepare system prompt for intent analysis
             system_prompt = self._get_intent_analysis_prompt(context)
-            
+
             # Call OpenAI API
             response = self.client.chat.completions.create(
                 model=settings.openai_model,
@@ -203,16 +226,30 @@ class AIEngine:
                 max_tokens=settings.openai_max_tokens,
                 temperature=settings.openai_temperature
             )
-            
+
+            # Estimate cost (approximate, for gpt-3.5-turbo)
+            if hasattr(response, 'usage') and response.usage is not None:
+                input_tokens = getattr(response.usage, 'prompt_tokens', 0)
+                output_tokens = getattr(response.usage, 'completion_tokens', 0)
+            else:
+                input_tokens = 0
+                output_tokens = 0
+            cost = (input_tokens * 0.0015 + output_tokens * 0.002) / 1000
+            self.monthly_spend += cost
+
+            # Warn if approaching threshold
+            if self.spend_tracking_enabled and self.monthly_spend >= self.spend_warning_threshold:
+                logger.warning(f"Warning: Monthly spend is ${self.monthly_spend:.2f}, approaching limit of ${self.monthly_spend_limit}.")
+
             # Parse response
             intent_text = response.choices[0].message.content
             if intent_text:
                 intent = json.loads(intent_text)
             else:
                 intent = {"action": "unknown", "confidence": 0.0, "parameters": {}}
-            
+
             return intent
-            
+        
         except Exception as e:
             logger.error(f"Error analyzing intent: {str(e)}")
             return {
@@ -251,6 +288,10 @@ class AIEngine:
                 return self._handle_help()
             elif action == "explain_decision":
                 return await self._handle_explain_decision(intent, context)
+            elif action == "greeting":
+                return await self._handle_greeting(intent, context)
+            elif action == "general_chat":
+                return await self._handle_general_chat(intent, context)
             else:
                 return await self._handle_unknown_action(intent, context)
                 
@@ -428,27 +469,27 @@ You can monitor the optimization progress by asking: "Show me the optimization s
         """Get details about RL optimization features."""
         details = {
             "execution_speed": """
-• Parallel processing optimization
-• Latency-aware neural architecture
-• Real-time decision acceleration
-• Memory-efficient computations""",
+- Parallel processing optimization
+- Latency-aware neural architecture
+- Real-time decision acceleration
+- Memory-efficient computations""",
             "risk_management": """
-• Risk-aware reward shaping
-• Multi-objective risk optimization
-• Dynamic risk threshold adjustment
-• Stress testing integration""",
+- Risk-aware reward shaping
+- Multi-objective risk optimization
+- Dynamic risk threshold adjustment
+- Stress testing integration""",
             "accuracy": """
-• Meta-learning for rapid adaptation
-• Ensemble model optimization
-• Feature importance weighting
-• Cross-validation strategies""",
+- Meta-learning for rapid adaptation
+- Ensemble model optimization
+- Feature importance weighting
+- Cross-validation strategies""",
             "compliance": """
-• Regulatory constraint learning
-• Compliance-aware action selection
-• Audit trail optimization
-• Rule-based decision validation"""
+- Regulatory constraint learning
+- Compliance-aware action selection
+- Audit trail optimization
+- Rule-based decision validation"""
         }
-        return details.get(focus, "• General performance optimization\n• Multi-objective learning\n• Adaptive parameter tuning")
+        return details.get(focus, "- General performance optimization\n- Multi-objective learning\n- Adaptive parameter tuning")
 
     def _get_expected_rl_improvements(self, focus: str) -> str:
         """Get expected improvements from RL optimization."""
@@ -571,6 +612,40 @@ Try asking something like:
 
 Or type "help" for a complete guide."""
     
+    async def _handle_greeting(self, intent: Dict[str, Any], context: ConversationContext) -> str:
+        """Handle greeting messages."""
+        parameters = intent.get("parameters", {})
+        greeting_type = parameters.get("greeting_type", "hello")
+        
+        greetings = {
+            "hello": "Hello! Welcome to the Bot Builder AI system. I'm here to help you manage AI employees and optimize your AI-powered hedge fund operations.",
+            "hi": "Hi there! I'm your AI assistant for the Bot Builder system. How can I help you today?",
+            "hey": "Hey! Great to see you. I'm ready to help you with AI employee management and system optimization.",
+            "good_morning": "Good morning! I hope you're having a great start to your day. How can I assist you with the Bot Builder AI system?",
+            "good_afternoon": "Good afternoon! I'm here to help you with your AI employee management and system optimization needs.",
+            "good_evening": "Goodevening! I'm ready to help you with the Bot Builder AI system. What would you like to work on?"
+        }
+        
+        base_response = greetings.get(greeting_type, greetings["hello"])
+        
+        return f"{base_response}\n\n**What I can help you with:**\n- Create and manage AI Employees (Research Analyst, Trader, Risk Manager, etc.)\n- Monitor performance and analytics\n- Optimize existing AI Employees\n- Check system status and health\n- Configure system parameters\n\n**Quick Start:**\nTry saying \"Create a new Research Analyst AI Employee\" or \"What's the system status?\" to get started!"
+
+    async def _handle_general_chat(self, intent: Dict[str, Any], context: ConversationContext) -> str:
+        """Handle general conversation."""
+        parameters = intent.get("parameters", {})
+        topic = parameters.get("topic", "general")
+        sentiment = parameters.get("sentiment", "neutral")
+        
+        responses = {
+            "wellbeing": "I'm functioning perfectly! All systems are operational and I'm ready to help you with AI employee management and system optimization.",
+            "capabilities": "I'm an advanced AI assistant for the Bot Builder system. I can help you create, manage, and optimize AI employees for your hedge fund operations.",
+            "general": "I'm here to help you with the Bot Builder AI system. Whether you need to create AI employees, monitor performance, or optimize your system, I'm ready to assist!"
+        }
+        
+        base_response = responses.get(topic, responses["general"])
+        
+        return f"{base_response}\n\n**Current System Status:**\n- Active AI Employees: {len(self.active_ai_employees)}\n- System Health: {self.system_health}\n- Advanced RL Engine: {'Enabled' if self.rl_enabled else 'Disabled'}\n- Real-time Data: {'Enabled' if self.real_time_enabled else 'Disabled'}\n- Explainability: {'Enabled' if self.explainability_enabled else 'Disabled'}\n\nIs there anything specific you'd like to work on with the Bot Builder system?"
+    
     def _get_conversation_context(self, session_id: str, user_id: str) -> ConversationContext:
         """Get or create conversation context."""
         if session_id not in self.conversations:
@@ -590,7 +665,7 @@ Or type "help" for a complete guide."""
 
 Your task is to understand what the user wants to do and return a JSON response with the following structure:
 {{
-    "action": "create_ai_employee|monitor_performance|optimize_ai_employee|get_status|configure_system|help|unknown",
+    "action": "create_ai_employee|monitor_performance|optimize_ai_employee|get_status|configure_system|help|greeting|general_chat|unknown",
     "confidence": 0.0-1.0,
     "parameters": {{
         // Action-specific parameters
@@ -616,8 +691,20 @@ Available actions:
 6. help - User wants help
    Parameters: {{}}
 
-7. unknown - Cannot determine intent
+7. greeting - User is greeting or saying hello
+   Parameters: {{"greeting_type": "hello|hi|hey|good_morning|good_afternoon|good_evening"}}
+
+8. general_chat - User is having general conversation
+   Parameters: {{"topic": "string", "sentiment": "positive|neutral|negative"}}
+
+9. unknown - Cannot determine intent
    Parameters: {{}}
+
+Examples:
+- "hello" → {{"action": "greeting", "confidence": 0.9, "parameters": {{"greeting_type": "hello"}}}}
+- "hi there" → {{"action": "greeting", "confidence": 0.9, "parameters": {{"greeting_type": "hi"}}}}
+- "how are you" → {{"action": "general_chat", "confidence": 0.8, "parameters": {{"topic": "wellbeing", "sentiment": "neutral"}}}}
+- "create a trader" → {{"action": "create_ai_employee", "confidence": 0.9, "parameters": {{"role": "trader", "specialization": "eral"}}}}
 
 Current context:
 - Active AI Employees: {len(context.current_ai_employees)}
@@ -1049,7 +1136,7 @@ Return only valid JSON. Be confident in your analysis."""
 """
             
             for factor in explanation.factors[:5]:  # Top 5 factors
-                response += f"• **{factor['name']}**: {factor['description']}\n"
+                response += f"- **{factor['name']}**: {factor['description']}\n"
             
             if explanation.visualization:
                 response += "\n**Visualization**: Available (base64 encoded)\n"
@@ -1072,7 +1159,7 @@ Return only valid JSON. Be confident in your analysis."""
 """
             
             for exp in explanations[-5:]:  # Last 5 explanations
-                response += f"• **{exp.decision_id}**: {exp.confidence:.2%} confidence\n"
+                response += f"- **{exp.decision_id}**: {exp.confidence:.2%} confidence\n"
             
             return response
             
@@ -1084,37 +1171,37 @@ Return only valid JSON. Be confident in your analysis."""
         """Get explainability capabilities for a role."""
         capabilities = {
             "research_analyst": """
-• SHAP-based feature importance analysis
-• LIME-based local explanations
-• Decision rationale transparency
-• Market analysis explanations
-• Pattern recognition insights""",
+- SHAP-based feature importance analysis
+- LIME-based local explanations
+- Decision rationale transparency
+- Market analysis explanations
+- Pattern recognition insights""",
             "trader": """
-• Trade decision explanations
-• Risk-reward analysis transparency
-• Execution strategy rationale
-• Portfolio impact analysis
-• Market timing explanations""",
+- Trade decision explanations
+- Risk-reward analysis transparency
+- Execution strategy rationale
+- Portfolio impact analysis
+- Market timing explanations""",
             "risk_manager": """
-• Risk assessment explanations
-• VaR calculation transparency
-• Stress testing rationale
-• Risk factor analysis
-• Compliance risk explanations""",
+- Risk assessment explanations
+- VaR calculation transparency
+- Stress testing rationale
+- Risk factor analysis
+- Compliance risk explanations""",
             "compliance_officer": """
-• Regulatory decision explanations
-• Compliance rule transparency
-• Audit trail explanations
-• Violation analysis
-• Policy interpretation rationale""",
+- Regulatory decision explanations
+- Compliance rule transparency
+- Audit trail explanations
+- Violation analysis
+- Policy interpretation rationale""",
             "data_specialist": """
-• Data processing explanations
-• Feature engineering transparency
-• Data quality analysis
-• Pipeline decision rationale
-• Model performance insights"""
+- Data processing explanations
+- Feature engineering transparency
+- Data quality analysis
+- Pipeline decision rationale
+- Model performance insights"""
         }
-        return capabilities.get(role, "• Decision transparency\n• Feature importance analysis\n• Rationale explanations")
+        return capabilities.get(role, "- Decision transparency\n- Feature importance analysis\n- Rationale explanations")
 
     def _create_rl_state(self, market_data: Dict[str, Any], portfolio_state: Dict[str, Any]) -> RLState:
         """Create RL state from market and portfolio data."""
@@ -1202,68 +1289,68 @@ Return only valid JSON. Be confident in your analysis."""
         """Get role-specific capabilities description."""
         capabilities = {
             "research_analyst": """
-• Advanced market analysis and forecasting
-• Sentiment analysis and news processing
-• Technical and fundamental analysis
-• Real-time market monitoring
-• Advanced RL for pattern recognition""",
+- Advanced market analysis and forecasting
+- Sentiment analysis and news processing
+- Technical and fundamental analysis
+- Real-time market monitoring
+- Advanced RL for pattern recognition""",
             "trader": """
-• High-frequency trading capabilities
-• Risk-aware position management
-• Advanced RL for optimal execution
-• Real-time market adaptation
-• Portfolio optimization""",
+- High-frequency trading capabilities
+- Risk-aware position management
+- Advanced RL for optimal execution
+- Real-time market adaptation
+- Portfolio optimization""",
             "risk_manager": """
-• Advanced risk modeling and assessment
-• VaR and stress testing
-• Dynamic risk threshold adjustment
-• RL-based risk prediction
-• Compliance monitoring""",
+- Advanced risk modeling and assessment
+- VaR and stress testing
+- Dynamic risk threshold adjustment
+- RL-based risk prediction
+- Compliance monitoring""",
             "compliance_officer": """
-• Regulatory compliance monitoring
-• Audit trail management
-• Rule-based decision validation
-• RL for compliance optimization
-• Real-time regulatory updates""",
+- Regulatory compliance monitoring
+- Audit trail management
+- Rule-based decision validation
+- RL for compliance optimization
+- Real-time regulatory updates""",
             "data_specialist": """
-• Advanced data processing and cleaning
-• Feature engineering and selection
-• Data quality assessment
-• RL for data optimization
-• Real-time data pipeline management"""
+- Advanced data processing and cleaning
+- Feature engineering and selection
+- Data quality assessment
+- RL for data optimization
+- Real-time data pipeline management"""
         }
-        return capabilities.get(role, "• General AI capabilities\n• Adaptive learning\n• Performance optimization") 
+        return capabilities.get(role, "- General AI capabilities\n- Adaptive learning\n- Performance optimization") 
 
     def _get_real_time_capabilities(self, role: str) -> str:
         """Get real-time capabilities for a role."""
         capabilities = {
             "research_analyst": """
-• Real-time market data analysis
-• Live news sentiment processing
-• Instant market trend detection
-• Continuous pattern recognition""",
+- Real-time market data analysis
+- Live news sentiment processing
+- Instant market trend detection
+- Continuous pattern recognition""",
             "trader": """
-• Real-time trade execution
-• Live market order management
-• Instant price monitoring
-• Continuous portfolio rebalancing""",
+- Real-time trade execution
+- Live market order management
+- Instant price monitoring
+- Continuous portfolio rebalancing""",
             "risk_manager": """
-• Real-time risk assessment
-• Live VaR calculations
-• Instant stress testing
-• Continuous exposure monitoring""",
+- Real-time risk assessment
+- Live VaR calculations
+- Instant stress testing
+- Continuous exposure monitoring""",
             "compliance_officer": """
-• Real-time compliance monitoring
-• Live regulatory updates
-• Instant audit trail tracking
-• Continuous rule validation""",
+- Real-time compliance monitoring
+- Live regulatory updates
+- Instant audit trail tracking
+- Continuous rule validation""",
             "data_specialist": """
-• Real-time data processing
-• Live data quality monitoring
-• Instant pipeline management
-• Continuous data validation"""
+- Real-time data processing
+- Live data quality monitoring
+- Instant pipeline management
+- Continuous data validation"""
         }
-        return capabilities.get(role, "• Real-time data processing\n• Live market monitoring\n• Instant decision making")
+        return capabilities.get(role, "- Real-time data processing\n- Live market monitoring\n- Instant decision making")
 
     async def _start_real_time_data_feed(self):
         """Start real-time data feed for monitored symbols."""

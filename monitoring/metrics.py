@@ -493,8 +493,12 @@ class MetricsCollector:
         try:
             # Save system metrics
             system_file = self.metrics_dir / "system_metrics.json"
+            system_metrics_dict = asdict(self.system_metrics)
+            # Convert datetime to string for JSON serialization
+            if system_metrics_dict.get('last_updated'):
+                system_metrics_dict['last_updated'] = system_metrics_dict['last_updated'].isoformat()
             with open(system_file, 'w') as f:
-                json.dump(asdict(self.system_metrics), f, indent=2)
+                json.dump(system_metrics_dict, f, indent=2)
             
             # Save employee statuses
             status_file = self.metrics_dir / "employee_statuses.json"
@@ -624,9 +628,22 @@ class MetricsCollector:
         """
         try:
             if format.lower() == "json":
+                # Convert system metrics with datetime handling
+                system_metrics_dict = asdict(self.system_metrics)
+                if system_metrics_dict.get('last_updated'):
+                    system_metrics_dict['last_updated'] = system_metrics_dict['last_updated'].isoformat()
+                
+                # Convert employee metrics with datetime handling
+                employee_metrics_dict = {}
+                for k, v in self.metrics_storage.items():
+                    metrics_dict = asdict(v)
+                    if metrics_dict.get('last_updated'):
+                        metrics_dict['last_updated'] = metrics_dict['last_updated'].isoformat()
+                    employee_metrics_dict[k] = metrics_dict
+                
                 return json.dumps({
-                    'system_metrics': asdict(self.system_metrics),
-                    'employee_metrics': {k: asdict(v) for k, v in self.metrics_storage.items()},
+                    'system_metrics': system_metrics_dict,
+                    'employee_metrics': employee_metrics_dict,
                     'employee_status': self.employee_status,
                     'exported_at': datetime.now().isoformat()
                 }, indent=2)

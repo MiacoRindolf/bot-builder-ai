@@ -150,7 +150,18 @@ class SelfImprovementEngine:
             content = response.choices[0].message.content
             if content is None:
                 raise ValueError("Empty response from OpenAI")
-            analysis_result = json.loads(content)
+            
+            # Try to parse JSON, but handle cases where it's not valid JSON
+            try:
+                analysis_result = json.loads(content)
+            except json.JSONDecodeError:
+                # If JSON parsing fails, create a basic analysis result
+                logger.warning("Failed to parse OpenAI response as JSON, using fallback analysis")
+                analysis_result = {
+                    "health_score": 0.7,
+                    "issues": [{"type": "json_parsing_error", "description": "Could not parse analysis response"}],
+                    "opportunities": [{"title": "Improve system analysis", "description": "Enhance analysis capabilities"}]
+                }
             
             # Create system analysis
             system_analysis = SystemAnalysis(
@@ -328,6 +339,92 @@ class SelfImprovementEngine:
     async def get_improvement_history(self, limit: int = 50) -> List[SelfImprovementProposal]:
         """Get recent improvement history."""
         return self.improvement_history[-limit:] if self.improvement_history else []
+    
+    async def get_all_proposals(self) -> List[SelfImprovementProposal]:
+        """Get all proposals."""
+        return self.improvement_history
+    
+    async def get_pending_proposals(self) -> List[SelfImprovementProposal]:
+        """Get pending proposals."""
+        return [p for p in self.improvement_history if p.status == "PENDING"]
+    
+    async def get_approved_proposals(self) -> List[SelfImprovementProposal]:
+        """Get approved proposals."""
+        return [p for p in self.improvement_history if p.status == "APPROVED"]
+    
+    async def get_implemented_proposals(self) -> List[SelfImprovementProposal]:
+        """Get implemented proposals."""
+        return [p for p in self.improvement_history if p.status == "IMPLEMENTED"]
+    
+    async def get_improvement_statistics(self) -> Dict[str, Any]:
+        """Get improvement statistics."""
+        total_proposals = len(self.improvement_history)
+        successful = len([p for p in self.improvement_history if p.status == "IMPLEMENTED"])
+        pending = len([p for p in self.improvement_history if p.status == "PENDING"])
+        
+        success_rate = (successful / total_proposals * 100) if total_proposals > 0 else 0
+        
+        # Calculate impact metrics
+        implemented_proposals = [p for p in self.improvement_history if p.status == "IMPLEMENTED"]
+        performance_gain = sum(p.estimated_impact.get("performance", 0) for p in implemented_proposals)
+        cost_reduction = sum(p.estimated_impact.get("cost_reduction", 0) for p in implemented_proposals)
+        efficiency_boost = sum(p.estimated_impact.get("efficiency", 0) for p in implemented_proposals)
+        
+        return {
+            "total_proposals": total_proposals,
+            "successful_improvements": successful,
+            "pending_approvals": pending,
+            "success_rate": success_rate,
+            "performance_gain": performance_gain,
+            "cost_reduction": cost_reduction,
+            "efficiency_boost": efficiency_boost,
+            "last_improvement": self.last_analysis.isoformat() if self.last_analysis else "Never"
+        }
+    
+    async def approve_proposal(self, proposal_id: str) -> bool:
+        """Approve a proposal."""
+        try:
+            for proposal in self.improvement_history:
+                if proposal.id == proposal_id:
+                    proposal.status = "APPROVED"
+                    logger.info(f"Proposal {proposal_id} approved")
+                    return True
+            return False
+        except Exception as e:
+            logger.error(f"Error approving proposal: {str(e)}")
+            return False
+    
+    async def reject_proposal(self, proposal_id: str, reason: str = "") -> bool:
+        """Reject a proposal."""
+        try:
+            for proposal in self.improvement_history:
+                if proposal.id == proposal_id:
+                    proposal.status = "REJECTED"
+                    logger.info(f"Proposal {proposal_id} rejected: {reason}")
+                    return True
+            return False
+        except Exception as e:
+            logger.error(f"Error rejecting proposal: {str(e)}")
+            return False
+    
+    async def generate_proposals(self) -> str:
+        """Generate new improvement proposals."""
+        try:
+            # Analyze system first
+            analysis = await self.analyze_system()
+            
+            # Generate proposals for each opportunity
+            proposals_generated = 0
+            for opportunity in analysis.improvement_opportunities:
+                proposal = await self.generate_improvement_proposal(opportunity)
+                if proposal:
+                    self.improvement_history.append(proposal)
+                    proposals_generated += 1
+            
+            return f"Generated {proposals_generated} new improvement proposals"
+        except Exception as e:
+            logger.error(f"Error generating proposals: {str(e)}")
+            return f"Error generating proposals: {str(e)}"
     
     async def get_system_health_report(self) -> Dict[str, Any]:
         """Get comprehensive system health report."""

@@ -542,6 +542,33 @@ class MetricsCollector:
             logger.error(f"Error getting worst performer: {str(e)}")
             return None
     
+    def get_api_usage_history(self) -> List[int]:
+        """Get API usage history for the last 24 hours."""
+        try:
+            # Return mock data for now - in production this would come from actual API logs
+            return [45, 52, 38, 29, 23, 18, 25, 67, 89, 124, 156, 178, 
+                    145, 167, 189, 201, 234, 267, 289, 312, 298, 245, 189, 156]
+        except Exception as e:
+            logger.error(f"Error getting API usage history: {str(e)}")
+            return [0] * 24
+    
+    def get_performance_trends(self) -> Dict[str, Any]:
+        """Get performance trends for the last 30 days."""
+        try:
+            # Return mock data for now - in production this would come from actual metrics
+            dates = [(datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(30, 0, -1)]
+            success_rates = [85 + i * 0.3 for i in range(30)]
+            response_times = [1.5 - i * 0.01 for i in range(30)]
+            
+            return {
+                "dates": dates,
+                "success_rates": success_rates,
+                "response_times": response_times
+            }
+        except Exception as e:
+            logger.error(f"Error getting performance trends: {str(e)}")
+            return {"dates": [], "success_rates": [], "response_times": []}
+    
     def _assess_system_health(self) -> str:
         """Assess overall system health."""
         try:

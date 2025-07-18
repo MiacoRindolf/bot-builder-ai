@@ -347,12 +347,13 @@ def main():
         
         # Launch the interface
         interface.launch(
-            server_name="127.0.0.1",
+            server_name="localhost",
             server_port=7860,
             share=False,
             show_error=True,
             quiet=True,
-            prevent_thread_lock=True
+            prevent_thread_lock=True,
+            allowed_paths=["ui/"]
         )
         
     except Exception as e:

@@ -963,7 +963,102 @@ def render_self_improvement():
                 ai_engine.self_improvement_engine.cached_analysis = None
                 ai_engine.self_improvement_engine.last_analysis = None
                 result = asyncio.run(ai_engine.self_improvement_engine.analyze_system())
-                st.success("🔍 **System Analysis Completed**\n\n" + str(result))
+                
+                # Display results in user-friendly format
+                st.success("🔍 **System Analysis Completed**")
+                
+                # System Health Overview
+                health_score = result.system_health_score
+                health_color = "🟢" if health_score >= 0.8 else "🟡" if health_score >= 0.6 else "🔴"
+                health_status = "Excellent" if health_score >= 0.8 else "Good" if health_score >= 0.6 else "Needs Attention"
+                
+                st.markdown(f"""
+                ### 📊 System Health Overview
+                {health_color} **Overall Health**: {health_score*100:.0f}% ({health_status})
+                """)
+                
+                # Performance Metrics
+                st.markdown("### 📈 Performance Metrics")
+                metrics = result.performance_metrics
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("System Uptime", f"{metrics.get('system_uptime', 0)}%")
+                with col2:
+                    st.metric("Success Rate", f"{metrics.get('success_rate', 0)}%")
+                with col3:
+                    st.metric("CPU Usage", f"{metrics.get('cpu_usage', 0)}%")
+                with col4:
+                    st.metric("Memory Usage", f"{metrics.get('memory_usage', 0)}%")
+                
+                # Identified Issues
+                if result.identified_issues:
+                    st.markdown("### ⚠️ Issues Found")
+                    for i, issue in enumerate(result.identified_issues, 1):
+                        severity_color = {
+                            "LOW": "🟡", "MEDIUM": "🟠", "HIGH": "🔴", "CRITICAL": "💀"
+                        }.get(issue.get('severity', 'MEDIUM'), '🟡')
+                        
+                        st.markdown(f"""
+                        **{i}. {severity_color} {issue.get('title', 'Unknown Issue')}**
+                        - **Type**: {issue.get('type', 'Unknown').title()}
+                        - **Severity**: {issue.get('severity', 'Unknown')}
+                        - **Description**: {issue.get('description', 'No description available')}
+                        """)
+                else:
+                    st.markdown("### ✅ No Issues Found")
+                    st.success("Your system is running smoothly with no identified problems!")
+                
+                # Improvement Opportunities
+                if result.improvement_opportunities:
+                    st.markdown("### 💡 Improvement Opportunities")
+                    for i, opp in enumerate(result.improvement_opportunities, 1):
+                        priority_color = {
+                            "LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠", "CRITICAL": "🔴"
+                        }.get(opp.get('priority', 'MEDIUM'), '🟡')
+                        
+                        impact = opp.get('estimated_impact', {})
+                        st.markdown(f"""
+                        **{i}. {priority_color} {opp.get('title', 'Unknown Opportunity')}**
+                        - **Type**: {opp.get('type', 'Unknown').title()}
+                        - **Priority**: {opp.get('priority', 'Unknown')}
+                        - **Risk Level**: {opp.get('risk_level', 'Unknown')}
+                        - **Description**: {opp.get('description', 'No description available')}
+                        - **Expected Impact**: 
+                          - Performance: +{impact.get('performance_improvement', '0%')}
+                          - Code Quality: +{impact.get('code_quality_improvement', '0%')}
+                          - Maintenance: +{impact.get('maintenance_improvement', '0%')}
+                        """)
+                
+                # Code Quality Summary
+                st.markdown("### 📝 Code Quality Summary")
+                code_quality = result.code_quality_metrics
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    coverage = code_quality.get('test_coverage', 0) * 100
+                    st.metric("Test Coverage", f"{coverage:.0f}%")
+                with col2:
+                    docs = code_quality.get('documentation_coverage', 0) * 100
+                    st.metric("Documentation", f"{docs:.0f}%")
+                with col3:
+                    maintainability = code_quality.get('maintainability_index', 0) * 100
+                    st.metric("Maintainability", f"{maintainability:.0f}%")
+                
+                # Technical Debt Summary
+                st.markdown("### 🏗️ Technical Debt Summary")
+                tech_debt = result.technical_debt_analysis
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("TODO Items", tech_debt.get('total_todos', 0))
+                with col2:
+                    st.metric("Deprecated Functions", tech_debt.get('deprecated_functions', 0))
+                with col3:
+                    st.metric("Unused Imports", tech_debt.get('unused_imports', 0))
+                with col4:
+                    st.metric("Long Functions", tech_debt.get('long_functions', 0))
+                
             except Exception as e:
                 st.error(f"Error analyzing system: {str(e)}")
     

@@ -9,12 +9,15 @@ sys.path.append(str(project_root))
 import streamlit as st
 import asyncio
 import uuid
+import logging
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+logger = logging.getLogger(__name__)
 
 from ui.styles import MAIN_STYLES
 from core.roles import ROLES
@@ -402,16 +405,32 @@ def get_real_system_metrics():
         
         # Get real metrics from metrics collector
         metrics_collector = ai_engine.metrics_collector
-        system_metrics = metrics_collector.get_system_metrics() if hasattr(metrics_collector, 'get_system_metrics') else {}
+        try:
+            if hasattr(metrics_collector, 'get_system_metrics'):
+                # Handle both sync and async methods
+                if asyncio.iscoroutinefunction(metrics_collector.get_system_metrics):
+                    system_metrics = asyncio.run(metrics_collector.get_system_metrics())
+                else:
+                    system_metrics = metrics_collector.get_system_metrics()
+            else:
+                system_metrics = {}
+        except Exception as e:
+            logger.error(f"Error getting system metrics: {str(e)}")
+            system_metrics = {}
         
         # Get real spending data
         monthly_spend = getattr(ai_engine, 'monthly_spend', 0.0)
         spend_limit = getattr(ai_engine, 'monthly_spend_limit', 15.0)
         
-        # Get real self-improvement data
+        # Get real self-improvement data using async calls
         self_improvement_engine = ai_engine.self_improvement_engine
-        proposals = self_improvement_engine.get_pending_proposals() if hasattr(self_improvement_engine, 'get_pending_proposals') else []
-        total_proposals = len(self_improvement_engine.get_all_proposals()) if hasattr(self_improvement_engine, 'get_all_proposals') else 0
+        
+        async def get_improvement_data():
+            proposals = await self_improvement_engine.get_pending_proposals() if hasattr(self_improvement_engine, 'get_pending_proposals') else []
+            all_proposals = await self_improvement_engine.get_all_proposals() if hasattr(self_improvement_engine, 'get_all_proposals') else []
+            return proposals, all_proposals
+        
+        proposals, all_proposals = asyncio.run(get_improvement_data())
         
         return {
             "total_employees": total_employees,
@@ -422,7 +441,7 @@ def get_real_system_metrics():
             "avg_response_time": system_metrics.get("avg_response_time", "N/A"),
             "monthly_spend": monthly_spend,
             "spend_limit": spend_limit,
-            "self_improvement_proposals": total_proposals,
+            "self_improvement_proposals": len(all_proposals),
             "pending_approvals": len(proposals)
         }
     except Exception as e:
@@ -444,7 +463,11 @@ def get_real_employee_data():
             performance = {}
             if hasattr(ai_engine.metrics_collector, 'get_employee_performance'):
                 try:
-                    perf_data = ai_engine.metrics_collector.get_employee_performance(employee_id)
+                    # Handle async call
+                    if asyncio.iscoroutinefunction(ai_engine.metrics_collector.get_employee_performance):
+                        perf_data = asyncio.run(ai_engine.metrics_collector.get_employee_performance(employee_id))
+                    else:
+                        perf_data = ai_engine.metrics_collector.get_employee_performance(employee_id)
                     performance = perf_data if perf_data else {}
                 except:
                     performance = {}
@@ -471,22 +494,27 @@ def get_real_self_improvement_data():
         ai_engine = st.session_state["ai_engine"]
         self_improvement_engine = ai_engine.self_improvement_engine
         
-        # Get real proposals
-        all_proposals = self_improvement_engine.get_all_proposals() if hasattr(self_improvement_engine, 'get_all_proposals') else []
-        pending_proposals = self_improvement_engine.get_pending_proposals() if hasattr(self_improvement_engine, 'get_pending_proposals') else []
-        approved_proposals = self_improvement_engine.get_approved_proposals() if hasattr(self_improvement_engine, 'get_approved_proposals') else []
-        implemented_proposals = self_improvement_engine.get_implemented_proposals() if hasattr(self_improvement_engine, 'get_implemented_proposals') else []
+        # Use asyncio.run to handle async calls in sync context
+        async def get_data():
+            # Get real proposals
+            all_proposals = await self_improvement_engine.get_all_proposals() if hasattr(self_improvement_engine, 'get_all_proposals') else []
+            pending_proposals = await self_improvement_engine.get_pending_proposals() if hasattr(self_improvement_engine, 'get_pending_proposals') else []
+            approved_proposals = await self_improvement_engine.get_approved_proposals() if hasattr(self_improvement_engine, 'get_approved_proposals') else []
+            implemented_proposals = await self_improvement_engine.get_implemented_proposals() if hasattr(self_improvement_engine, 'get_implemented_proposals') else []
+            
+            # Get real improvement statistics
+            stats = await self_improvement_engine.get_improvement_statistics() if hasattr(self_improvement_engine, 'get_improvement_statistics') else {}
+            
+            return {
+                "all_proposals": all_proposals,
+                "pending_proposals": pending_proposals,
+                "approved_proposals": approved_proposals,
+                "implemented_proposals": implemented_proposals,
+                "statistics": stats
+            }
         
-        # Get real improvement statistics
-        stats = self_improvement_engine.get_improvement_statistics() if hasattr(self_improvement_engine, 'get_improvement_statistics') else {}
+        return asyncio.run(get_data())
         
-        return {
-            "all_proposals": all_proposals,
-            "pending_proposals": pending_proposals,
-            "approved_proposals": approved_proposals,
-            "implemented_proposals": implemented_proposals,
-            "statistics": stats
-        }
     except Exception as e:
         st.error(f"Error getting self-improvement data: {str(e)}")
         return {
@@ -577,7 +605,11 @@ def render_dashboard():
         api_calls = [0] * 24  # Default empty data
         if hasattr(ai_engine.metrics_collector, 'get_api_usage_history'):
             try:
-                api_calls = ai_engine.metrics_collector.get_api_usage_history()
+                # Handle async call
+                if asyncio.iscoroutinefunction(ai_engine.metrics_collector.get_api_usage_history):
+                    api_calls = asyncio.run(ai_engine.metrics_collector.get_api_usage_history())
+                else:
+                    api_calls = ai_engine.metrics_collector.get_api_usage_history()
             except:
                 pass
         
@@ -782,7 +814,11 @@ def render_performance():
         ai_engine = st.session_state["ai_engine"]
         if hasattr(ai_engine.metrics_collector, 'get_performance_trends'):
             try:
-                trends = ai_engine.metrics_collector.get_performance_trends()
+                # Handle async call
+                if asyncio.iscoroutinefunction(ai_engine.metrics_collector.get_performance_trends):
+                    trends = asyncio.run(ai_engine.metrics_collector.get_performance_trends())
+                else:
+                    trends = ai_engine.metrics_collector.get_performance_trends()
                 dates = trends.get('dates', [])
                 success_rates = trends.get('success_rates', [])
                 response_times = trends.get('response_times', [])

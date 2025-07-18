@@ -38,7 +38,13 @@ st.markdown(MAIN_STYLES, unsafe_allow_html=True)
 
 # Initialize AI Engine (singleton)
 if "ai_engine" not in st.session_state:
-    st.session_state["ai_engine"] = AIEngine()
+    ai_engine = AIEngine()
+    st.session_state["ai_engine"] = ai_engine
+    
+    # Clear any cached analysis on startup to ensure fresh data
+    if hasattr(ai_engine, 'self_improvement_engine') and ai_engine.self_improvement_engine:
+        ai_engine.self_improvement_engine.cached_analysis = None
+        ai_engine.self_improvement_engine.last_analysis = None
 
 # Initialize session state
 if "current_page" not in st.session_state:
@@ -947,14 +953,17 @@ def render_self_improvement():
     # Quick actions
     st.markdown("### ⚡ Quick Actions")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         if st.button("🔍 Analyze System", type="primary", use_container_width=True):
             try:
                 ai_engine = st.session_state["ai_engine"]
+                # Clear cache before analysis
+                ai_engine.self_improvement_engine.cached_analysis = None
+                ai_engine.self_improvement_engine.last_analysis = None
                 result = asyncio.run(ai_engine.self_improvement_engine.analyze_system())
-                st.success("🔍 **System Analysis Started**\n\n" + str(result))
+                st.success("🔍 **System Analysis Completed**\n\n" + str(result))
             except Exception as e:
                 st.error(f"Error analyzing system: {str(e)}")
     
@@ -970,6 +979,16 @@ def render_self_improvement():
     with col3:
         if st.button("📊 View History", type="primary", use_container_width=True):
             st.info("📊 **Loading Improvement History**\n\nDisplaying all past improvements, their impact, and learning outcomes...")
+    
+    with col4:
+        if st.button("🔄 Clear Cache", type="secondary", use_container_width=True):
+            try:
+                ai_engine = st.session_state["ai_engine"]
+                ai_engine.self_improvement_engine.cached_analysis = None
+                ai_engine.self_improvement_engine.last_analysis = None
+                st.success("✅ Cache cleared! Next analysis will be fresh.")
+            except Exception as e:
+                st.error(f"Error clearing cache: {str(e)}")
     
     # Pending proposals with real approval workflow
     st.markdown("### 📋 Pending Improvement Proposals")

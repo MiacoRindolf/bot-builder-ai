@@ -1,3 +1,11 @@
+import sys
+import os
+from pathlib import Path
+
+# Add the project root to the path
+project_root = Path(__file__).parent.parent
+sys.path.append(str(project_root))
+
 import streamlit as st
 from ui.styles import MAIN_STYLES
 from core.roles import ROLES

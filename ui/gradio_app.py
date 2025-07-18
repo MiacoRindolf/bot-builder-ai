@@ -3,6 +3,14 @@ Gradio web interface for the Bot Builder AI system.
 Provides an alternative to Streamlit with a conversational chat interface.
 """
 
+import sys
+import os
+from pathlib import Path
+
+# Add the project root to the path
+project_root = Path(__file__).parent.parent
+sys.path.append(str(project_root))
+
 import gradio as gr
 import asyncio
 import json

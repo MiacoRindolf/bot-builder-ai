@@ -18,6 +18,7 @@ from core.employee_factory import AIEmployeeFactory
 from core.learning_engine import LearningEngine
 from core.advanced_rl_engine import AdvancedRLEngine, RLState, RLAction, RLReward
 from core.explainability_engine import AdvancedExplainabilityEngine, ExplanationResult, DecisionContext
+from core.self_improvement_engine import SelfImprovementEngine, SelfImprovementProposal
 from data.data_manager import DataManager
 from data.real_time_market_data import RealTimeMarketDataProvider, MarketDataPoint, MarketEvent
 from monitoring.metrics import MetricsCollector
@@ -57,6 +58,7 @@ class AIEngine:
         self.learning_engine = LearningEngine()
         self.advanced_rl_engine = AdvancedRLEngine()  # Advanced RL Engine
         self.explainability_engine = AdvancedExplainabilityEngine()  # NEW: Explainability Engine
+        self.self_improvement_engine = SelfImprovementEngine()  # NEW: True Self-Improvement Engine
         self.data_manager = DataManager()
         self.real_time_data = RealTimeMarketDataProvider()  # Real-time data
         self.metrics_collector = MetricsCollector()
@@ -90,7 +92,7 @@ class AIEngine:
         self.spend_warning_threshold = settings.spend_warning_threshold
         self.current_month = datetime.now().strftime("%Y-%m")
 
-        logger.info("AI Engine initialized successfully with Advanced RL, Real-time Data, and Explainability capabilities")
+        logger.info("AI Engine initialized successfully with Advanced RL, Real-time Data, Explainability, and True Self-Improvement capabilities")
     
     async def process_user_input(self, user_input: str, session_id: str, user_id: str) -> str:
         """
@@ -174,11 +176,17 @@ class AIEngine:
                     logger.warning("Real-time data initialization failed, continuing without real-time data")
                     self.real_time_enabled = False
             
+            # Initialize self-improvement engine
+            logger.info("Initializing True Self-Improvement Engine...")
+            si_success = await self.self_improvement_engine.initialize()
+            if not si_success:
+                logger.warning("Self-Improvement Engine initialization failed, continuing without self-improvement")
+            
             # Initialize other components
             await self.learning_engine.initialize()
             await self.metrics_collector.start_monitoring()
             
-            logger.info("AI Engine initialized successfully with all components")
+            logger.info("AI Engine initialized successfully with all components including True Self-Improvement")
             return True
             
         except Exception as e:
@@ -284,6 +292,14 @@ class AIEngine:
                 return await self._handle_get_status(intent, context)
             elif action == "configure_system":
                 return await self._handle_configure_system(intent, context)
+            elif action == "self_improve":
+                return await self._handle_self_improve(intent, context)
+            elif action == "analyze_system":
+                return await self._handle_analyze_system(intent, context)
+            elif action == "approve_proposal":
+                return await self._handle_approve_proposal(intent, context)
+            elif action == "reject_proposal":
+                return await self._handle_reject_proposal(intent, context)
             elif action == "help":
                 return self._handle_help()
             elif action == "explain_decision":
@@ -570,6 +586,13 @@ You can monitor progress by asking: "Show me the optimization status for {employ
 - "Improve the Risk Manager's prediction accuracy"
 - "Enhance the Research Analyst's sentiment analysis"
 
+### 🧠 TRUE AI Self-Improvement
+- **"Improve yourself"** - I analyze my own system and generate improvement proposals
+- **"Analyze system"** - Comprehensive system analysis for optimization opportunities
+- **"Approve proposal [ID]"** - Review and approve my own improvement suggestions
+- **"Reject proposal [ID] because [reason]"** - Reject with explanation
+- **Real code generation** - I can actually modify my own code with your approval
+
 ### System Management
 - "What's the current system status?"
 - "Show me all active AI Employees"
@@ -587,11 +610,23 @@ You can monitor progress by asking: "Show me the optimization status for {employ
 4. **Compliance Officer**: Regulatory knowledge, NLP, explainability
 5. **Data Specialist**: Data cleaning, management, structuring
 
+## 🚀 Self-Improvement Workflow
+
+1. **Say "improve yourself"** to start autonomous analysis
+2. **I'll identify improvement opportunities** in my own code and performance
+3. **Generate specific proposals** with actual code changes
+4. **Submit for your approval** with detailed explanations
+5. **If approved, I implement the changes** and run tests
+6. **Monitor results** and learn from improvements
+
+This is **true AI self-improvement** - not just task management, but actual code generation and system enhancement!
+
 ## Tips
 - Be specific about your requirements
 - Monitor performance regularly
 - Use optimization features to improve results
 - Check system status for any issues
+- **Try "improve yourself" to see real AI self-improvement in action!**
 
 Need more help? Just ask!"""
     
@@ -665,7 +700,7 @@ Or type "help" for a complete guide."""
 
 Your task is to understand what the user wants to do and return a JSON response with the following structure:
 {{
-    "action": "create_ai_employee|monitor_performance|optimize_ai_employee|get_status|configure_system|help|greeting|general_chat|unknown",
+    "action": "create_ai_employee|monitor_performance|optimize_ai_employee|get_status|configure_system|self_improve|analyze_system|approve_proposal|reject_proposal|help|greeting|general_chat|unknown",
     "confidence": 0.0-1.0,
     "parameters": {{
         // Action-specific parameters
@@ -683,28 +718,43 @@ Available actions:
    Parameters: {{"employee_id": "string", "optimization_focus": "string"}}
 
 4. get_status - User wants system status
-   Parameters: {{"status_type": "system|employees|performance"}}
+   Parameters: {{"status_type": "system|employees|performance|self_improvement"}}
 
 5. configure_system - User wants to configure system
    Parameters: {{"config_type": "string", "config_value": "string"}}
 
-6. help - User wants help
-   Parameters: {{}}
+6. self_improve - User wants to trigger self-improvement analysis
+   Parameters: {{"improvement_type": "automatic|manual", "focus_area": "string (optional)"}}
 
-7. greeting - User is greeting or saying hello
-   Parameters: {{"greeting_type": "hello|hi|hey|good_morning|good_afternoon|good_evening"}}
+7. analyze_system - User wants to analyze system for improvements
+   Parameters: {{"analysis_type": "comprehensive|performance|code_quality|technical_debt"}}
 
-8. general_chat - User is having general conversation
-   Parameters: {{"topic": "string", "sentiment": "positive|neutral|negative"}}
+8. approve_proposal - User wants to approve a self-improvement proposal
+   Parameters: {{"proposal_id": "string", "notes": "string (optional)"}}
 
-9. unknown - Cannot determine intent
-   Parameters: {{}}
+9. reject_proposal - User wants to reject a self-improvement proposal
+   Parameters: {{"proposal_id": "string", "reason": "string", "notes": "string (optional)"}}
+
+10. help - User wants help
+    Parameters: {{}}
+
+11. greeting - User is greeting or saying hello
+    Parameters: {{"greeting_type": "hello|hi|hey|good_morning|good_afternoon|good_evening"}}
+
+12. general_chat - User is having general conversation
+    Parameters: {{"topic": "string", "sentiment": "positive|neutral|negative"}}
+
+13. unknown - Cannot determine intent
+    Parameters: {{}}
 
 Examples:
 - "hello" → {{"action": "greeting", "confidence": 0.9, "parameters": {{"greeting_type": "hello"}}}}
 - "hi there" → {{"action": "greeting", "confidence": 0.9, "parameters": {{"greeting_type": "hi"}}}}
 - "how are you" → {{"action": "general_chat", "confidence": 0.8, "parameters": {{"topic": "wellbeing", "sentiment": "neutral"}}}}
 - "create a trader" → {{"action": "create_ai_employee", "confidence": 0.9, "parameters": {{"role": "trader", "specialization": "eral"}}}}
+- "improve yourself" → {{"action": "self_improve", "confidence": 0.9, "parameters": {{"improvement_type": "automatic"}}}}
+- "analyze system" → {{"action": "analyze_system", "confidence": 0.9, "parameters": {{"analysis_type": "comprehensive"}}}}
+- "approve proposal 123" → {{"action": "approve_proposal", "confidence": 0.9, "parameters": {{"proposal_id": "123"}}}}
 
 Current context:
 - Active AI Employees: {len(context.current_ai_employees)}
@@ -1594,4 +1644,321 @@ Return only valid JSON. Be confident in your analysis."""
                 
         except Exception as e:
             logger.error(f"Error removing symbol from monitoring: {str(e)}")
-            return False 
+            return False
+    
+    # NEW: Self-Improvement Handlers
+    
+    async def _handle_self_improve(self, intent: Dict[str, Any], context: ConversationContext) -> str:
+        """Handle self-improvement requests."""
+        try:
+            parameters = intent.get("parameters", {})
+            improvement_type = parameters.get("improvement_type", "automatic")
+            focus_area = parameters.get("focus_area", "")
+            
+            if improvement_type == "automatic":
+                # Trigger autonomous improvement cycle
+                response = """🧠 **True AI Self-Improvement Initiated!**
+
+I'm now analyzing my own system to identify improvement opportunities. This is **real self-improvement** - I'm using my own AI capabilities to:
+
+**🔍 Self-Analysis:**
+- Analyzing my own code and performance
+- Identifying weaknesses and bottlenecks
+- Finding optimization opportunities
+- Assessing technical debt
+
+**📋 Proposal Generation:**
+- Generating specific improvement proposals
+- Creating code diffs for the improvements
+- Estimating impact and risk levels
+- Preparing implementation plans
+
+**👔 CEO Approval Required:**
+- All proposals will be submitted for your review
+- You'll see detailed explanations and code changes
+- You can approve, reject, or modify proposals
+- Full audit trail of all decisions
+
+**⚡ Implementation:**
+- If approved, I'll implement the changes
+- Run tests to ensure everything works
+- Monitor the improvements
+- Learn from the results
+
+This is **true AI self-improvement** - not just task management, but actual code generation and system enhancement!
+
+**Status:** Analysis in progress...
+**Next Step:** You'll receive approval requests for any improvements I identify."""
+                
+            else:
+                response = """🧠 **Manual Self-Improvement Mode**
+
+I can analyze specific areas of my system for improvements. What would you like me to focus on?
+
+**Available Focus Areas:**
+- Performance optimization
+- Code quality improvements
+- Feature enhancements
+- Bug fixes
+- Architecture improvements
+
+Just let me know what area you'd like me to analyze!"""
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error handling self-improvement request: {str(e)}")
+            return f"I encountered an error while initiating self-improvement: {str(e)}"
+    
+    async def _handle_analyze_system(self, intent: Dict[str, Any], context: ConversationContext) -> str:
+        """Handle system analysis requests."""
+        try:
+            parameters = intent.get("parameters", {})
+            analysis_type = parameters.get("analysis_type", "comprehensive")
+            
+            # Perform system analysis
+            analysis = await self.self_improvement_engine.analyze_system()
+            
+            response = f"""🔍 **System Analysis Results**
+
+**Analysis Type:** {analysis_type.title()}
+**Health Score:** {analysis.system_health_score:.1%}
+**Timestamp:** {analysis.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
+
+**📊 Performance Metrics:**
+{self._format_system_analysis_metrics(analysis.performance_metrics)}
+
+**🚨 Identified Issues:**
+{self._format_identified_issues(analysis.identified_issues)}
+
+**💡 Improvement Opportunities:**
+{self._format_improvement_opportunities(analysis.improvement_opportunities)}
+
+**📈 Code Quality Metrics:**
+{self._format_code_quality_metrics(analysis.code_quality_metrics)}
+
+**🔧 Technical Debt Analysis:**
+{self._format_technical_debt(analysis.technical_debt_analysis)}
+
+**Next Steps:**
+- I can generate specific improvement proposals for any of these opportunities
+- Just say "improve yourself" to start the self-improvement process
+- Or ask me to focus on a specific area"""
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error handling system analysis: {str(e)}")
+            return f"I encountered an error while analyzing the system: {str(e)}"
+    
+    async def _handle_approve_proposal(self, intent: Dict[str, Any], context: ConversationContext) -> str:
+        """Handle proposal approval requests."""
+        try:
+            parameters = intent.get("parameters", {})
+            proposal_id = parameters.get("proposal_id", "")
+            notes = parameters.get("notes", "")
+            
+            if not proposal_id:
+                return "Please provide a proposal ID to approve."
+            
+            # Get pending approvals
+            pending_approvals = self.self_improvement_engine.approval_engine.get_pending_approvals()
+            
+            # Find the approval request
+            approval_request = None
+            for approval in pending_approvals:
+                if approval.proposal_id == proposal_id:
+                    approval_request = approval
+                    break
+            
+            if not approval_request:
+                return f"Proposal {proposal_id} not found in pending approvals."
+            
+            # Approve the proposal
+            success = await self.self_improvement_engine.approval_engine.approve_proposal(
+                approval_request.id, 
+                context.user_id, 
+                notes
+            )
+            
+            if success:
+                # Implement the proposal
+                proposal = await self._get_proposal_by_id(proposal_id)
+                if proposal:
+                    implementation_success = await self.self_improvement_engine.implement_proposal(proposal)
+                    
+                    if implementation_success:
+                        response = f"""✅ **Proposal Approved and Implemented!**
+
+**Proposal ID:** {proposal_id}
+**Title:** {approval_request.title}
+**Approved by:** {context.user_id}
+**Status:** Successfully implemented
+
+**🎯 What was implemented:**
+{approval_request.description}
+
+**📈 Expected Impact:**
+{self._format_estimated_impact(approval_request.estimated_impact)}
+
+**📝 Notes:** {notes if notes else "None"}
+
+The self-improvement has been successfully applied to the system!"""
+                    else:
+                        response = f"""⚠️ **Proposal Approved but Implementation Failed**
+
+**Proposal ID:** {proposal_id}
+**Title:** {approval_request.title}
+**Status:** Implementation failed
+
+The proposal was approved but encountered an error during implementation. The system will attempt to rollback any partial changes."""
+                else:
+                    response = f"""⚠️ **Proposal Approved but Not Found**
+
+**Proposal ID:** {proposal_id}
+**Status:** Proposal not found for implementation
+
+The proposal was approved but could not be located for implementation."""
+            else:
+                response = f"❌ Failed to approve proposal {proposal_id}."
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error handling proposal approval: {str(e)}")
+            return f"I encountered an error while approving the proposal: {str(e)}"
+    
+    async def _handle_reject_proposal(self, intent: Dict[str, Any], context: ConversationContext) -> str:
+        """Handle proposal rejection requests."""
+        try:
+            parameters = intent.get("parameters", {})
+            proposal_id = parameters.get("proposal_id", "")
+            reason = parameters.get("reason", "No reason provided")
+            notes = parameters.get("notes", "")
+            
+            if not proposal_id:
+                return "Please provide a proposal ID to reject."
+            
+            # Get pending approvals
+            pending_approvals = self.self_improvement_engine.approval_engine.get_pending_approvals()
+            
+            # Find the approval request
+            approval_request = None
+            for approval in pending_approvals:
+                if approval.proposal_id == proposal_id:
+                    approval_request = approval
+                    break
+            
+            if not approval_request:
+                return f"Proposal {proposal_id} not found in pending approvals."
+            
+            # Reject the proposal
+            success = await self.self_improvement_engine.approval_engine.reject_proposal(
+                approval_request.id, 
+                context.user_id, 
+                reason, 
+                notes
+            )
+            
+            if success:
+                response = f"""❌ **Proposal Rejected**
+
+**Proposal ID:** {proposal_id}
+**Title:** {approval_request.title}
+**Rejected by:** {context.user_id}
+**Reason:** {reason}
+**Notes:** {notes if notes else "None"}
+
+The proposal has been rejected and will not be implemented."""
+            else:
+                response = f"❌ Failed to reject proposal {proposal_id}."
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error handling proposal rejection: {str(e)}")
+            return f"I encountered an error while rejecting the proposal: {str(e)}"
+    
+    # Helper methods for self-improvement
+    
+    def _format_system_analysis_metrics(self, metrics: Dict[str, Any]) -> str:
+        """Format system analysis metrics."""
+        if not metrics or "error" in metrics:
+            return "No metrics available"
+        
+        formatted = ""
+        for key, value in metrics.items():
+            if isinstance(value, float):
+                formatted += f"- {key.replace('_', ' ').title()}: {value:.2f}\n"
+            else:
+                formatted += f"- {key.replace('_', ' ').title()}: {value}\n"
+        return formatted
+    
+    def _format_identified_issues(self, issues: List[Dict[str, Any]]) -> str:
+        """Format identified issues."""
+        if not issues:
+            return "No issues identified"
+        
+        formatted = ""
+        for i, issue in enumerate(issues[:5], 1):  # Show first 5 issues
+            formatted += f"{i}. **{issue.get('title', 'Unknown')}** ({issue.get('severity', 'UNKNOWN')})\n"
+            formatted += f"   {issue.get('description', 'No description')}\n\n"
+        return formatted
+    
+    def _format_improvement_opportunities(self, opportunities: List[Dict[str, Any]]) -> str:
+        """Format improvement opportunities."""
+        if not opportunities:
+            return "No improvement opportunities identified"
+        
+        formatted = ""
+        for i, opp in enumerate(opportunities[:5], 1):  # Show first 5 opportunities
+            formatted += f"{i}. **{opp.get('title', 'Unknown')}** ({opp.get('priority', 'UNKNOWN')})\n"
+            formatted += f"   {opp.get('description', 'No description')}\n"
+            formatted += f"   Risk Level: {opp.get('risk_level', 'UNKNOWN')}\n\n"
+        return formatted
+    
+    def _format_code_quality_metrics(self, metrics: Dict[str, Any]) -> str:
+        """Format code quality metrics."""
+        if not metrics or "error" in metrics:
+            return "No code quality metrics available"
+        
+        formatted = ""
+        for key, value in metrics.items():
+            if isinstance(value, float):
+                formatted += f"- {key.replace('_', ' ').title()}: {value:.2f}\n"
+            else:
+                formatted += f"- {key.replace('_', ' ').title()}: {value}\n"
+        return formatted
+    
+    def _format_technical_debt(self, debt: Dict[str, Any]) -> str:
+        """Format technical debt analysis."""
+        if not debt or "error" in debt:
+            return "No technical debt analysis available"
+        
+        formatted = ""
+        for key, value in debt.items():
+            formatted += f"- {key.replace('_', ' ').title()}: {value}\n"
+        return formatted
+    
+    def _format_estimated_impact(self, impact: Dict[str, Any]) -> str:
+        """Format estimated impact."""
+        if not impact:
+            return "No impact data available"
+        
+        formatted = ""
+        for key, value in impact.items():
+            formatted += f"- {key.replace('_', ' ').title()}: {value}\n"
+        return formatted
+    
+    async def _get_proposal_by_id(self, proposal_id: str) -> Optional[SelfImprovementProposal]:
+        """Get a proposal by ID."""
+        try:
+            # This would typically query a database
+            # For now, search in improvement history
+            for proposal in self.self_improvement_engine.improvement_history:
+                if proposal.id == proposal_id:
+                    return proposal
+            return None
+        except Exception as e:
+            logger.error(f"Error getting proposal by ID: {str(e)}")
+            return None 

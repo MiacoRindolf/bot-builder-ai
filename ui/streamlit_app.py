@@ -1143,9 +1143,29 @@ def render_self_improvement():
                 if st.button(f"✅ Approve", key=f"approve_{proposal_id}_{i}"):
                     try:
                         ai_engine = st.session_state["ai_engine"]
-                        result = asyncio.run(ai_engine.self_improvement_engine.approve_proposal(proposal_id))
-                        st.success(f"Approved proposal {proposal_id}")
-                        st.rerun()
+                        
+                        # Show implementation progress
+                        with st.spinner(f"🔄 Implementing proposal {proposal_id}..."):
+                            result = asyncio.run(ai_engine.self_improvement_engine.approve_proposal(proposal_id))
+                        
+                        if result:
+                            st.success(f"✅ Successfully approved and implemented proposal {proposal_id}")
+                            
+                            # Show implementation details
+                            proposal_obj = None
+                            for p in ai_engine.self_improvement_engine.improvement_history:
+                                if p.id == proposal_id:
+                                    proposal_obj = p
+                                    break
+                            
+                            if proposal_obj and hasattr(proposal_obj, 'implementation_results'):
+                                impl_results = proposal_obj.implementation_results
+                                if impl_results and impl_results.get('applied_changes'):
+                                    st.info(f"📝 Applied changes to: {', '.join(impl_results['applied_changes'])}")
+                            
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Failed to implement proposal {proposal_id}")
                     except Exception as e:
                         st.error(f"Error approving proposal: {str(e)}")
             
@@ -1179,7 +1199,9 @@ def render_self_improvement():
             title = proposal.get("title", "Unknown Proposal")
             description = proposal.get("description", "No description available")
             implemented_at = proposal.get("implemented_at", "Unknown")
-            impact = proposal.get("impact", "Unknown")
+            impact = proposal.get("estimated_impact", {}).get("performance_improvement", "Unknown")
+            target_files = proposal.get("target_files", [])
+            implementation_results = proposal.get("implementation_results", {})
             
             st.markdown(f"""
             <div class="proposal-card approved">
@@ -1188,6 +1210,17 @@ def render_self_improvement():
                 <p>{description}</p>
             </div>
             """, unsafe_allow_html=True)
+            
+            # Show implementation details
+            if implementation_results and implementation_results.get('applied_changes'):
+                st.success(f"📝 **Files Modified:** {', '.join(implementation_results['applied_changes'])}")
+            
+            if target_files:
+                st.info(f"🎯 **Target Files:** {', '.join(target_files)}")
+            
+            # Show any errors if they occurred
+            if implementation_results and implementation_results.get('errors'):
+                st.warning(f"⚠️ **Issues:** {', '.join(implementation_results['errors'])}")
     else:
         st.info("No implemented improvements yet. The system will show improvements here once they are approved and implemented.")
 

@@ -410,13 +410,21 @@ class SelfImprovementEngine:
         }
     
     async def approve_proposal(self, proposal_id: str) -> bool:
-        """Approve a proposal."""
+        """Approve a proposal and implement it."""
         try:
             for proposal in self.improvement_history:
                 if proposal.id == proposal_id:
                     proposal.status = "APPROVED"
                     logger.info(f"Proposal {proposal_id} approved")
-                    return True
+                    
+                    # Automatically implement the approved proposal
+                    implementation_success = await self.implement_proposal(proposal)
+                    if implementation_success:
+                        logger.info(f"Successfully implemented approved proposal {proposal_id}")
+                        return True
+                    else:
+                        logger.error(f"Failed to implement approved proposal {proposal_id}")
+                        return False
             return False
         except Exception as e:
             logger.error(f"Error approving proposal: {str(e)}")

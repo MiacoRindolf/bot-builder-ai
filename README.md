@@ -234,3 +234,26 @@ For support and questions:
 - [ ] API for third-party integrations
 - [ ] Advanced risk management tools
 - [ ] Machine learning model marketplace 
+
+## Testing & Validation
+
+To ensure your Bot Builder AI system is working as intended, run the following:
+
+### Quick Validation
+```
+python validate_system.py
+```
+This script checks core system health and feature integration.
+
+### Full Test Suite
+```
+pip install -r requirements-dev.txt
+pytest
+```
+This will run all integration and feature tests and show a coverage report.
+
+**What to expect:**
+- ✅ All tests should pass for a healthy system
+- ❌ Any failures will be clearly reported for debugging
+
+For best results, run tests after any major change or before deployment. 

@@ -144,21 +144,23 @@ class GradioApp:
 🤖 **Bot Builder AI System Status**
 
 **System Health**: ✅ Operational
-**AI Engine**: ✅ Active
+**AI Engine**: ✅ Active  
 **Data Manager**: ✅ Active
 **Metrics Collector**: ✅ Active
+**Self-Improvement**: ✅ Enabled
+**Real-time Data**: ✅ Active
 
 **Quick Actions**:
-- Create AI Employees using the form below
-- Chat with the AI Assistant
-- Monitor performance and metrics
+• Create AI Employees using the form below
+• Chat with the AI Assistant
+• Monitor performance and metrics
 
 **Available Roles**:
-- Research Analyst: Deep learning, forecasting, economic analysis
-- Trader: Reinforcement learning, execution speed, strategic decision-making
-- Risk Manager: Probability theory, statistical modeling, scenario testing
-- Compliance Officer: Regulatory knowledge, NLP, explainability
-- Data Specialist: Data cleaning, management, structuring
+• Research Analyst: Deep learning, forecasting, economic analysis
+• Trader: Reinforcement learning, execution speed, strategic decision-making
+• Risk Manager: Probability theory, statistical modeling, scenario testing
+• Compliance Officer: Regulatory knowledge, NLP, explainability
+• Data Specialist: Data cleaning, management, structuring
             """
             return status
             
@@ -316,7 +318,7 @@ Need more help? Just ask in the chat!
             )
             
             refresh_btn.click(
-                self.get_system_status,
+                lambda: gr.HTML(self.get_system_status()),
                 outputs=status_display
             )
             

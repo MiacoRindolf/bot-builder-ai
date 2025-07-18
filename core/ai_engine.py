@@ -300,6 +300,12 @@ class AIEngine:
                 return await self._handle_approve_proposal(intent, context)
             elif action == "reject_proposal":
                 return await self._handle_reject_proposal(intent, context)
+            elif action == "version_info":
+                return await self._handle_version_info(intent, context)
+            elif action == "upgrade_history":
+                return await self._handle_upgrade_history(intent, context)
+            elif action == "create_version":
+                return await self._handle_create_version(intent, context)
             elif action == "help":
                 return self._handle_help()
             elif action == "explain_decision":

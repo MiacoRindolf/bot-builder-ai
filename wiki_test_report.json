@@ -1,0 +1,239 @@
+{
+  "timestamp": "2025-07-18T00:56:14.574207",
+  "summary": {
+    "total_tests": 38,
+    "passed_tests": 37,
+    "failed_tests": 1,
+    "success_rate": 97.36842105263158
+  },
+  "results": [
+    {
+      "test": "Version Tracker Initialization",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.519673"
+    },
+    {
+      "test": "Get Upgrade History",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.519775"
+    },
+    {
+      "test": "Current Version Access",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.519823"
+    },
+    {
+      "test": "Total Upgrades Access",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.519882"
+    },
+    {
+      "test": "Success Rate Access",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.519934"
+    },
+    {
+      "test": "Documentation File Count",
+      "success": true,
+      "details": "Generated 4 files (expected 4)",
+      "timestamp": "2025-07-18T00:56:14.522974"
+    },
+    {
+      "test": "File Generation: Home.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.523072"
+    },
+    {
+      "test": "File Generation: Upgrade-History.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.523117"
+    },
+    {
+      "test": "File Generation: Self-Improvement-Guide.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.523163"
+    },
+    {
+      "test": "File Generation: API-Documentation.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.523223"
+    },
+    {
+      "test": "Content Length: Home.md",
+      "success": true,
+      "details": "Length: 3048 chars (min: 1000)",
+      "timestamp": "2025-07-18T00:56:14.523272"
+    },
+    {
+      "test": "Content Structure: Home.md",
+      "success": true,
+      "details": "Found 3 section levels",
+      "timestamp": "2025-07-18T00:56:14.523380"
+    },
+    {
+      "test": "Content Length: Upgrade-History.md",
+      "success": false,
+      "details": "Length: 518 chars (min: 1000)",
+      "timestamp": "2025-07-18T00:56:14.523480"
+    },
+    {
+      "test": "Content Structure: Upgrade-History.md",
+      "success": true,
+      "details": "Found 3 section levels",
+      "timestamp": "2025-07-18T00:56:14.523575"
+    },
+    {
+      "test": "Dynamic Content: Upgrade-History.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.523676"
+    },
+    {
+      "test": "Content Length: Self-Improvement-Guide.md",
+      "success": true,
+      "details": "Length: 4330 chars (min: 1000)",
+      "timestamp": "2025-07-18T00:56:14.523728"
+    },
+    {
+      "test": "Content Structure: Self-Improvement-Guide.md",
+      "success": true,
+      "details": "Found 3 section levels",
+      "timestamp": "2025-07-18T00:56:14.523827"
+    },
+    {
+      "test": "Content Length: API-Documentation.md",
+      "success": true,
+      "details": "Length: 5056 chars (min: 1000)",
+      "timestamp": "2025-07-18T00:56:14.523893"
+    },
+    {
+      "test": "Content Structure: API-Documentation.md",
+      "success": true,
+      "details": "Found 3 section levels",
+      "timestamp": "2025-07-18T00:56:14.523991"
+    },
+    {
+      "test": "Wiki Directory Creation",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.524270"
+    },
+    {
+      "test": "File Exists: Home.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.524424"
+    },
+    {
+      "test": "File Size: Home.md",
+      "success": true,
+      "details": "Size: 3327 bytes",
+      "timestamp": "2025-07-18T00:56:14.524543"
+    },
+    {
+      "test": "File Readable: Home.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.543125"
+    },
+    {
+      "test": "File Exists: Upgrade-History.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.543313"
+    },
+    {
+      "test": "File Size: Upgrade-History.md",
+      "success": true,
+      "details": "Size: 544 bytes",
+      "timestamp": "2025-07-18T00:56:14.543412"
+    },
+    {
+      "test": "File Readable: Upgrade-History.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.554641"
+    },
+    {
+      "test": "File Exists: Self-Improvement-Guide.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.554896"
+    },
+    {
+      "test": "File Size: Self-Improvement-Guide.md",
+      "success": true,
+      "details": "Size: 4504 bytes",
+      "timestamp": "2025-07-18T00:56:14.555057"
+    },
+    {
+      "test": "File Readable: Self-Improvement-Guide.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.556615"
+    },
+    {
+      "test": "File Exists: API-Documentation.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.556842"
+    },
+    {
+      "test": "File Size: API-Documentation.md",
+      "success": true,
+      "details": "Size: 5268 bytes",
+      "timestamp": "2025-07-18T00:56:14.556974"
+    },
+    {
+      "test": "File Readable: API-Documentation.md",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.558089"
+    },
+    {
+      "test": "Home.md Key Sections",
+      "success": true,
+      "details": "Found 5/5 key sections",
+      "timestamp": "2025-07-18T00:56:14.558499"
+    },
+    {
+      "test": "Home.md Navigation Links",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.558575"
+    },
+    {
+      "test": "API Documentation Completeness",
+      "success": true,
+      "details": "Found 5/5 API sections",
+      "timestamp": "2025-07-18T00:56:14.558797"
+    },
+    {
+      "test": "Self-Improvement Guide Completeness",
+      "success": true,
+      "details": "Found 5/5 process sections",
+      "timestamp": "2025-07-18T00:56:14.559060"
+    },
+    {
+      "test": "Upload Helper Import",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.572536"
+    },
+    {
+      "test": "Upload Helper Directory Detection",
+      "success": true,
+      "details": "",
+      "timestamp": "2025-07-18T00:56:14.572703"
+    }
+  ]
+}

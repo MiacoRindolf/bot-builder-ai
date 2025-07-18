@@ -20,6 +20,7 @@ from openai import OpenAI
 from config.settings import settings
 from core.code_generation_engine import CodeGenerationEngine
 from core.approval_engine import ApprovalEngine
+from core.version_tracker import VersionTracker, ChangeType, ImpactLevel
 from monitoring.metrics import MetricsCollector
 from utils.helpers import generate_uuid
 
@@ -72,6 +73,7 @@ class SelfImprovementEngine:
         self.client = OpenAI(api_key=settings.openai_api_key)
         self.code_generation_engine = CodeGenerationEngine()
         self.approval_engine = ApprovalEngine()
+        self.version_tracker = VersionTracker()
         self.metrics_collector = MetricsCollector()
         
         # System state
@@ -98,6 +100,7 @@ class SelfImprovementEngine:
             # Initialize sub-components
             await self.code_generation_engine.initialize()
             await self.approval_engine.initialize()
+            await self.version_tracker.initialize()
             
             # Start autonomous improvement cycle
             asyncio.create_task(self._autonomous_improvement_cycle())
@@ -144,7 +147,10 @@ class SelfImprovementEngine:
                 temperature=0.3
             )
             
-            analysis_result = json.loads(response.choices[0].message.content)
+            content = response.choices[0].message.content
+            if content is None:
+                raise ValueError("Empty response from OpenAI")
+            analysis_result = json.loads(content)
             
             # Create system analysis
             system_analysis = SystemAnalysis(
@@ -304,6 +310,9 @@ class SelfImprovementEngine:
             proposal.implementation_results = implementation_result
             self.successful_improvements += 1
             
+            # Record version change
+            await self._record_version_change(proposal, implementation_result)
+            
             # Learn from the improvement
             await self._learn_from_improvement(proposal)
             
@@ -340,6 +349,70 @@ class SelfImprovementEngine:
         except Exception as e:
             logger.error(f"Error generating health report: {str(e)}")
             return {"error": str(e)}
+    
+    async def get_version_info(self) -> Dict[str, Any]:
+        """Get current version information."""
+        try:
+            history = await self.version_tracker.get_upgrade_history()
+            
+            return {
+                "current_version": history.current_version,
+                "total_upgrades": history.total_upgrades,
+                "total_improvements": history.total_improvements,
+                "success_rate": history.success_rate,
+                "average_improvement": history.average_improvement_per_upgrade,
+                "last_upgrade": history.last_upgrade_date.isoformat() if history.last_upgrade_date else None,
+                "upgrade_frequency_days": history.upgrade_frequency_days
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting version info: {str(e)}")
+            return {"error": str(e)}
+    
+    async def get_upgrade_history(self) -> Dict[str, Any]:
+        """Get complete upgrade history."""
+        try:
+            history = await self.version_tracker.get_upgrade_history()
+            
+            return {
+                "current_version": history.current_version,
+                "versions": [
+                    {
+                        "version": v.version,
+                        "release_date": v.release_date.isoformat(),
+                        "total_changes": v.total_changes,
+                        "performance_improvement": v.performance_improvement,
+                        "bug_fixes": v.bug_fixes,
+                        "new_features": v.new_features,
+                        "breaking_changes": v.breaking_changes
+                    }
+                    for v in history.versions
+                ],
+                "total_upgrades": history.total_upgrades,
+                "total_improvements": history.total_improvements,
+                "success_rate": history.success_rate,
+                "average_improvement": history.average_improvement_per_upgrade
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting upgrade history: {str(e)}")
+            return {"error": str(e)}
+    
+    async def create_new_version(self, version_type: str = "patch") -> str:
+        """Create a new version from pending changes."""
+        try:
+            return await self.version_tracker.create_new_version(version_type)
+        except Exception as e:
+            logger.error(f"Error creating new version: {str(e)}")
+            return self.version_tracker.current_version
+    
+    async def export_version_report(self, format: str = "json") -> str:
+        """Export version history report."""
+        try:
+            return await self.version_tracker.export_version_history(format)
+        except Exception as e:
+            logger.error(f"Error exporting version report: {str(e)}")
+            return "Error exporting version report"
     
     async def _autonomous_improvement_cycle(self):
         """Autonomous improvement cycle that runs continuously."""
@@ -520,7 +593,10 @@ Be specific and actionable.
                 temperature=0.3
             )
             
-            return json.loads(response.choices[0].message.content)
+            content = response.choices[0].message.content
+            if content is None:
+                return None
+            return json.loads(content)
             
         except Exception as e:
             logger.error(f"Error generating proposal with AI: {str(e)}")
@@ -572,4 +648,74 @@ Be specific and actionable.
             logger.info(f"Recorded learning from successful improvement: {proposal.id}")
             
         except Exception as e:
-            logger.error(f"Error learning from improvement: {str(e)}") 
+            logger.error(f"Error learning from improvement: {str(e)}")
+    
+    async def _record_version_change(self, proposal: SelfImprovementProposal, implementation_result: Dict[str, Any]):
+        """Record a version change for the implemented proposal."""
+        try:
+            # Determine change type based on proposal description
+            change_type = self._determine_change_type(proposal.description)
+            
+            # Determine impact level based on proposal risk level
+            impact_level = self._determine_impact_level(proposal.risk_level)
+            
+            # Calculate lines changed
+            lines_added = 0
+            lines_removed = 0
+            for diff in proposal.code_changes.values():
+                diff_lines = diff.split('\n')
+                lines_added += len([line for line in diff_lines if line.startswith('+') and not line.startswith('+++')])
+                lines_removed += len([line for line in diff_lines if line.startswith('-') and not line.startswith('---')])
+            
+            # Record the improvement
+            change_id = await self.version_tracker.record_improvement(
+                proposal_id=proposal.id,
+                change_type=change_type,
+                title=proposal.title,
+                description=proposal.description,
+                files_modified=proposal.target_files,
+                lines_added=lines_added,
+                lines_removed=lines_removed,
+                impact_level=impact_level,
+                implemented_by=proposal.generated_by,
+                approved_by="CEO"  # This would come from approval engine
+            )
+            
+            # Finalize the improvement
+            await self.version_tracker.finalize_improvement(change_id, success=True)
+            
+            logger.info(f"Recorded version change: {change_id}")
+            
+        except Exception as e:
+            logger.error(f"Error recording version change: {str(e)}")
+    
+    def _determine_change_type(self, description: str) -> ChangeType:
+        """Determine the change type based on description."""
+        description_lower = description.lower()
+        
+        if any(word in description_lower for word in ["bug", "fix", "error", "issue"]):
+            return ChangeType.BUG_FIX
+        elif any(word in description_lower for word in ["performance", "speed", "optimization"]):
+            return ChangeType.PERFORMANCE_IMPROVEMENT
+        elif any(word in description_lower for word in ["feature", "add", "new"]):
+            return ChangeType.FEATURE_ADDITION
+        elif any(word in description_lower for word in ["refactor", "restructure", "clean"]):
+            return ChangeType.CODE_REFACTORING
+        elif any(word in description_lower for word in ["security", "vulnerability"]):
+            return ChangeType.SECURITY_UPDATE
+        elif any(word in description_lower for word in ["documentation", "docs", "readme"]):
+            return ChangeType.DOCUMENTATION_UPDATE
+        elif any(word in description_lower for word in ["architecture", "design"]):
+            return ChangeType.ARCHITECTURE_CHANGE
+        else:
+            return ChangeType.OPTIMIZATION
+    
+    def _determine_impact_level(self, risk_level: str) -> ImpactLevel:
+        """Determine impact level based on risk level."""
+        risk_mapping = {
+            "LOW": ImpactLevel.LOW,
+            "MEDIUM": ImpactLevel.MEDIUM,
+            "HIGH": ImpactLevel.HIGH,
+            "CRITICAL": ImpactLevel.CRITICAL
+        }
+        return risk_mapping.get(risk_level, ImpactLevel.MEDIUM) 

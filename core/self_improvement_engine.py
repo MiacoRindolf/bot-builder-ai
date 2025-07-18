@@ -141,35 +141,55 @@ class SelfImprovementEngine:
                 response = self.client.chat.completions.create(
                     model=settings.openai_model,
                     messages=[
-                        {"role": "system", "content": "You are an expert AI system analyst. You must respond with valid JSON only. Analyze the provided system data and identify specific improvement opportunities."},
+                        {"role": "system", "content": "You are an expert AI system analyst. You MUST respond with ONLY valid JSON. No additional text, explanations, or markdown formatting. Analyze the provided system data and identify specific improvement opportunities."},
                         {"role": "user", "content": analysis_prompt}
                     ],
                     max_tokens=2000,
-                    temperature=0.3
+                    temperature=0.2
                 )
                 
                 content = response.choices[0].message.content
                 if content is None:
                     raise ValueError("Empty response from OpenAI")
                 
-                # Try to parse JSON, but handle cases where it's not valid JSON
+                # Clean the content to extract JSON
+                content = content.strip()
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
+                
+                # Try to parse JSON with multiple attempts
+                analysis_result = None
                 try:
                     analysis_result = json.loads(content)
-                except json.JSONDecodeError:
-                    # If JSON parsing fails, create a basic analysis result
-                    logger.warning("Failed to parse OpenAI response as JSON, using fallback analysis")
-                    analysis_result = {
-                        "health_score": 0.7,
-                        "issues": [{"type": "json_parsing_error", "description": "Could not parse analysis response"}],
-                        "opportunities": [{"title": "Improve system analysis", "description": "Enhance analysis capabilities"}]
-                    }
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Initial JSON parsing failed: {str(e)}")
+                    # Try to extract JSON from the response
+                    try:
+                        # Look for JSON-like content
+                        start_idx = content.find('{')
+                        end_idx = content.rfind('}') + 1
+                        if start_idx != -1 and end_idx > start_idx:
+                            json_content = content[start_idx:end_idx]
+                            analysis_result = json.loads(json_content)
+                            logger.info("Successfully extracted JSON from response")
+                    except json.JSONDecodeError:
+                        logger.warning("Failed to extract JSON from response")
+                
+                if analysis_result is None:
+                    # Create intelligent fallback analysis based on actual metrics
+                    logger.warning("Using intelligent fallback analysis based on collected metrics")
+                    analysis_result = self._create_intelligent_fallback_analysis(
+                        performance_metrics, code_quality_metrics, technical_debt
+                    )
+                    
             except Exception as e:
-                logger.warning(f"OpenAI analysis failed: {str(e)}, using fallback analysis")
-                analysis_result = {
-                    "health_score": 0.7,
-                    "issues": [{"type": "analysis_error", "description": f"Analysis failed: {str(e)}"}],
-                    "opportunities": [{"title": "Improve system analysis", "description": "Enhance analysis capabilities"}]
-                }
+                logger.warning(f"OpenAI analysis failed: {str(e)}, using intelligent fallback analysis")
+                analysis_result = self._create_intelligent_fallback_analysis(
+                    performance_metrics, code_quality_metrics, technical_debt
+                )
             
             # Create system analysis
             system_analysis = SystemAnalysis(
@@ -646,7 +666,7 @@ class SelfImprovementEngine:
                                technical_debt: Dict[str, Any]) -> str:
         """Create prompt for AI analysis."""
         return f"""
-Analyze the following system data and identify specific improvement opportunities:
+You are an expert AI system analyst. Analyze the following system data and provide a COMPLETE JSON response.
 
 PERFORMANCE METRICS:
 {json.dumps(performance_metrics, indent=2)}
@@ -657,36 +677,38 @@ CODE QUALITY METRICS:
 TECHNICAL DEBT:
 {json.dumps(technical_debt, indent=2)}
 
-Please provide a JSON response with the following structure:
+IMPORTANT: You MUST respond with ONLY valid JSON. No additional text, explanations, or markdown formatting.
+
+Required JSON structure:
 {{
-    "health_score": 0.0-1.0,
+    "health_score": 0.85,
     "issues": [
         {{
-            "type": "performance|code_quality|security|maintainability",
-            "title": "Brief issue title",
-            "description": "Detailed description",
-            "severity": "LOW|MEDIUM|HIGH|CRITICAL",
-            "affected_components": ["component1", "component2"]
+            "type": "performance",
+            "title": "High CPU Usage",
+            "description": "System showing elevated CPU usage during peak operations",
+            "severity": "MEDIUM",
+            "affected_components": ["ai_engine", "data_processor"]
         }}
     ],
     "opportunities": [
         {{
-            "type": "optimization|refactoring|feature|bug_fix",
-            "title": "Brief opportunity title", 
-            "description": "Detailed description",
-            "priority": "LOW|MEDIUM|HIGH|CRITICAL",
+            "type": "optimization",
+            "title": "Optimize Data Processing Pipeline",
+            "description": "Implement caching and parallel processing to reduce CPU usage",
+            "priority": "HIGH",
             "estimated_impact": {{
-                "performance_improvement": "0-100%",
-                "code_quality_improvement": "0-100%",
-                "maintenance_improvement": "0-100%"
+                "performance_improvement": "25%",
+                "code_quality_improvement": "15%",
+                "maintenance_improvement": "20%"
             }},
-            "target_files": ["file1.py", "file2.py"],
-            "risk_level": "LOW|MEDIUM|HIGH"
+            "target_files": ["data/data_manager.py", "utils/data_processor.py"],
+            "risk_level": "LOW"
         }}
     ]
 }}
 
-Focus on actionable, specific improvements that can be implemented with code changes.
+Analyze the data and provide specific, actionable improvements. Focus on real issues and opportunities based on the metrics provided.
 """
     
     async def _generate_proposal_with_ai(self, opportunity: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -821,6 +843,158 @@ Be specific and actionable.
             
         except Exception as e:
             logger.error(f"Error recording version change: {str(e)}")
+    
+    def _create_intelligent_fallback_analysis(self, performance_metrics: Dict[str, Any], 
+                                            code_quality: Dict[str, Any], 
+                                            technical_debt: Dict[str, Any]) -> Dict[str, Any]:
+        """Create intelligent fallback analysis based on collected metrics."""
+        issues = []
+        opportunities = []
+        
+        # Analyze performance metrics
+        cpu_usage = performance_metrics.get('cpu_usage', 0)
+        memory_usage = performance_metrics.get('memory_usage', 0)
+        error_rate = performance_metrics.get('error_rate', 0)
+        response_time = performance_metrics.get('response_time_avg', 0)
+        
+        if cpu_usage > 70:
+            issues.append({
+                "type": "performance",
+                "title": "High CPU Usage",
+                "description": f"System CPU usage is {cpu_usage}%, indicating potential performance bottlenecks",
+                "severity": "MEDIUM",
+                "affected_components": ["ai_engine", "data_processor"]
+            })
+            opportunities.append({
+                "type": "optimization",
+                "title": "Optimize CPU-Intensive Operations",
+                "description": "Implement caching, parallel processing, and algorithm optimization",
+                "priority": "HIGH",
+                "estimated_impact": {
+                    "performance_improvement": "30%",
+                    "code_quality_improvement": "15%",
+                    "maintenance_improvement": "20%"
+                },
+                "target_files": ["core/ai_engine.py", "utils/data_processor.py"],
+                "risk_level": "LOW"
+            })
+        
+        if memory_usage > 80:
+            issues.append({
+                "type": "performance",
+                "title": "High Memory Usage",
+                "description": f"System memory usage is {memory_usage}%, may cause performance issues",
+                "severity": "MEDIUM",
+                "affected_components": ["data_manager", "cache_system"]
+            })
+        
+        if error_rate > 0.05:
+            issues.append({
+                "type": "reliability",
+                "title": "Elevated Error Rate",
+                "description": f"Error rate of {error_rate}% indicates system instability",
+                "severity": "HIGH",
+                "affected_components": ["all_components"]
+            })
+            opportunities.append({
+                "type": "bug_fix",
+                "title": "Improve Error Handling and Recovery",
+                "description": "Enhance error handling, add retry mechanisms, and improve logging",
+                "priority": "CRITICAL",
+                "estimated_impact": {
+                    "performance_improvement": "10%",
+                    "code_quality_improvement": "25%",
+                    "maintenance_improvement": "30%"
+                },
+                "target_files": ["core/ai_engine.py", "utils/helpers.py", "monitoring/metrics.py"],
+                "risk_level": "LOW"
+            })
+        
+        # Analyze code quality
+        test_coverage = code_quality.get('test_coverage', 0)
+        documentation_coverage = code_quality.get('documentation_coverage', 0)
+        code_complexity = code_quality.get('code_complexity', 0)
+        
+        if test_coverage < 0.8:
+            issues.append({
+                "type": "code_quality",
+                "title": "Low Test Coverage",
+                "description": f"Test coverage is {test_coverage*100}%, below recommended 80%",
+                "severity": "MEDIUM",
+                "affected_components": ["all_components"]
+            })
+            opportunities.append({
+                "type": "feature",
+                "title": "Increase Test Coverage",
+                "description": "Add comprehensive unit and integration tests",
+                "priority": "HIGH",
+                "estimated_impact": {
+                    "performance_improvement": "5%",
+                    "code_quality_improvement": "40%",
+                    "maintenance_improvement": "35%"
+                },
+                "target_files": ["tests/"],
+                "risk_level": "LOW"
+            })
+        
+        if documentation_coverage < 0.7:
+            issues.append({
+                "type": "maintainability",
+                "title": "Insufficient Documentation",
+                "description": f"Documentation coverage is {documentation_coverage*100}%, needs improvement",
+                "severity": "LOW",
+                "affected_components": ["all_components"]
+            })
+        
+        # Analyze technical debt
+        total_todos = technical_debt.get('total_todos', 0)
+        deprecated_functions = technical_debt.get('deprecated_functions', 0)
+        unused_imports = technical_debt.get('unused_imports', 0)
+        
+        if total_todos > 10:
+            issues.append({
+                "type": "maintainability",
+                "title": "High Technical Debt",
+                "description": f"{total_todos} TODO items indicate accumulated technical debt",
+                "severity": "MEDIUM",
+                "affected_components": ["all_components"]
+            })
+            opportunities.append({
+                "type": "refactoring",
+                "title": "Address Technical Debt",
+                "description": "Systematically address TODO items and technical debt",
+                "priority": "MEDIUM",
+                "estimated_impact": {
+                    "performance_improvement": "10%",
+                    "code_quality_improvement": "30%",
+                    "maintenance_improvement": "40%"
+                },
+                "target_files": ["all_files"],
+                "risk_level": "MEDIUM"
+            })
+        
+        if deprecated_functions > 0:
+            issues.append({
+                "type": "maintainability",
+                "title": "Deprecated Functions",
+                "description": f"{deprecated_functions} deprecated functions need to be updated or removed",
+                "severity": "LOW",
+                "affected_components": ["utils", "core"]
+            })
+        
+        # Calculate health score based on issues
+        health_score = 0.85  # Base score
+        if len(issues) > 0:
+            high_severity = len([i for i in issues if i.get('severity') == 'HIGH'])
+            medium_severity = len([i for i in issues if i.get('severity') == 'MEDIUM'])
+            health_score -= (high_severity * 0.1) + (medium_severity * 0.05)
+        health_score = max(0.3, min(0.95, health_score))  # Clamp between 0.3 and 0.95
+        
+        return {
+            "health_score": health_score,
+            "issues": issues,
+            "opportunities": opportunities
+        }
     
     def _determine_change_type(self, description: str) -> ChangeType:
         """Determine the change type based on description."""

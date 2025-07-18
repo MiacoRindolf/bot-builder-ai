@@ -526,6 +526,25 @@ def get_real_self_improvement_data():
             approved_proposals = await self_improvement_engine.get_approved_proposals() if hasattr(self_improvement_engine, 'get_approved_proposals') else []
             implemented_proposals = await self_improvement_engine.get_implemented_proposals() if hasattr(self_improvement_engine, 'get_implemented_proposals') else []
             
+            # Convert proposal objects to dictionaries for UI display
+            def convert_proposal_to_dict(proposal):
+                if hasattr(proposal, '__dict__'):
+                    # Convert object to dict
+                    proposal_dict = proposal.__dict__.copy()
+                    # Convert datetime to string for display
+                    if 'created_at' in proposal_dict and proposal_dict['created_at']:
+                        proposal_dict['created_at'] = proposal_dict['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+                    return proposal_dict
+                else:
+                    # Already a dict
+                    return proposal
+            
+            # Convert all proposals to the expected format
+            all_proposals = [convert_proposal_to_dict(p) for p in all_proposals]
+            pending_proposals = [convert_proposal_to_dict(p) for p in pending_proposals]
+            approved_proposals = [convert_proposal_to_dict(p) for p in approved_proposals]
+            implemented_proposals = [convert_proposal_to_dict(p) for p in implemented_proposals]
+            
             # Get real improvement statistics
             stats = await self_improvement_engine.get_improvement_statistics() if hasattr(self_improvement_engine, 'get_improvement_statistics') else {}
             
@@ -1090,12 +1109,16 @@ def render_self_improvement():
     
     pending_proposals = si_data["pending_proposals"]
     
+    # Debug: Show raw proposal data
+    if st.checkbox("🔍 Debug: Show Raw Proposal Data"):
+        st.json(pending_proposals)
+    
     if pending_proposals:
         for proposal in pending_proposals:
             proposal_id = proposal.get("id", "unknown")
             title = proposal.get("title", "Unknown Proposal")
             description = proposal.get("description", "No description available")
-            impact = proposal.get("impact", "Medium")
+            impact = proposal.get("estimated_impact", {}).get("performance_improvement", "Medium")
             created = proposal.get("created_at", "Unknown")
             
             st.markdown(f"""

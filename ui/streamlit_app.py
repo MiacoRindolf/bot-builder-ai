@@ -1114,7 +1114,16 @@ def render_self_improvement():
         st.json(pending_proposals)
     
     if pending_proposals:
+        # Remove duplicates based on proposal ID
+        seen_ids = set()
+        unique_proposals = []
         for proposal in pending_proposals:
+            proposal_id = proposal.get("id", "unknown")
+            if proposal_id not in seen_ids:
+                seen_ids.add(proposal_id)
+                unique_proposals.append(proposal)
+        
+        for i, proposal in enumerate(unique_proposals):
             proposal_id = proposal.get("id", "unknown")
             title = proposal.get("title", "Unknown Proposal")
             description = proposal.get("description", "No description available")
@@ -1131,7 +1140,7 @@ def render_self_improvement():
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                if st.button(f"✅ Approve", key=f"approve_{proposal_id}"):
+                if st.button(f"✅ Approve", key=f"approve_{proposal_id}_{i}"):
                     try:
                         ai_engine = st.session_state["ai_engine"]
                         result = asyncio.run(ai_engine.self_improvement_engine.approve_proposal(proposal_id))
@@ -1141,7 +1150,7 @@ def render_self_improvement():
                         st.error(f"Error approving proposal: {str(e)}")
             
             with col2:
-                if st.button(f"❌ Reject", key=f"reject_{proposal_id}"):
+                if st.button(f"❌ Reject", key=f"reject_{proposal_id}_{i}"):
                     try:
                         ai_engine = st.session_state["ai_engine"]
                         result = asyncio.run(ai_engine.self_improvement_engine.reject_proposal(proposal_id, "Rejected by CEO"))
@@ -1151,11 +1160,11 @@ def render_self_improvement():
                         st.error(f"Error rejecting proposal: {str(e)}")
             
             with col3:
-                if st.button(f"📊 Details", key=f"details_{proposal_id}"):
+                if st.button(f"📊 Details", key=f"details_{proposal_id}_{i}"):
                     st.info(f"**Proposal Details for {proposal_id}**\n\n{description}")
             
             with col4:
-                if st.button(f"📝 Edit", key=f"edit_{proposal_id}"):
+                if st.button(f"📝 Edit", key=f"edit_{proposal_id}_{i}"):
                     st.info(f"Edit proposal {proposal_id}")
     else:
         st.info("No pending proposals. The AI system is currently not requesting any improvements.")

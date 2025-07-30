@@ -341,13 +341,14 @@ def render_chat_interface():
                 st.markdown("""
                 <div class="welcome-message">
                 👋 <strong>Welcome to Bot Builder AI!</strong><br>
-                I'm your AI assistant. How can I help you today?<br><br>
+                I'm your intelligent AI assistant with smart routing capabilities. How can I help you today?<br><br>
                 <strong>Try asking:</strong><br>
-                • "Create a new Research Analyst AI Employee"<br>
-                • "Show me the system performance"<br>
+                • "Show me the system status"<br>
+                • "What are the pending proposals?"<br>
                 • "Analyze the system for improvements"<br>
-                • "What's the current market status?"<br>
-                • "Show me pending self-improvement proposals"
+                • "Show me AI employee performance"<br>
+                • "Navigate to the CEO portal"<br>
+                • "What's the current market status?"
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -378,20 +379,12 @@ def render_chat_interface():
         # Add user message to chat
         st.session_state["chat_messages"].append({"role": "user", "content": user_input})
         
-        # Get AI response
+        # Get AI response using intelligent chat interface
         ai_response = "Processing your request..."
         try:
-            # Process with AI engine
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            ai_response = loop.run_until_complete(
-                st.session_state["ai_engine"].process_user_input(
-                    user_input, 
-                    st.session_state["chat_session_id"], 
-                    st.session_state["chat_user_id"]
-                )
-            )
-            loop.close()
+            # Process with intelligent chat interface
+            ai_engine = st.session_state["ai_engine"]
+            ai_response = asyncio.run(ai_engine.chat_with_intelligent_assistant(user_input))
             
         except Exception as e:
             ai_response = f"I encountered an error: {str(e)}"

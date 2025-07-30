@@ -19,6 +19,7 @@ from core.learning_engine import LearningEngine
 from core.advanced_rl_engine import AdvancedRLEngine, RLState, RLAction, RLReward
 from core.explainability_engine import AdvancedExplainabilityEngine, ExplanationResult, DecisionContext
 from core.self_improvement_engine import SelfImprovementEngine, SelfImprovementProposal
+from core.intelligent_chat_interface import IntelligentChatInterface
 from data.data_manager import DataManager
 from data.real_time_market_data import RealTimeMarketDataProvider, MarketDataPoint, MarketEvent
 from monitoring.metrics import MetricsCollector
@@ -59,6 +60,7 @@ class AIEngine:
         self.advanced_rl_engine = AdvancedRLEngine()  # Advanced RL Engine
         self.explainability_engine = AdvancedExplainabilityEngine()  # NEW: Explainability Engine
         self.self_improvement_engine = SelfImprovementEngine()  # NEW: True Self-Improvement Engine
+        self.intelligent_chat = IntelligentChatInterface(self)  # NEW: Intelligent Chat Interface
         self.data_manager = DataManager()
         self.real_time_data = RealTimeMarketDataProvider()  # Real-time data
         self.metrics_collector = MetricsCollector()
@@ -181,6 +183,12 @@ class AIEngine:
             si_success = await self.self_improvement_engine.initialize()
             if not si_success:
                 logger.warning("Self-Improvement Engine initialization failed, continuing without self-improvement")
+            
+            # Initialize intelligent chat interface
+            logger.info("Initializing Intelligent Chat Interface...")
+            chat_success = await self.intelligent_chat.initialize()
+            if not chat_success:
+                logger.warning("Intelligent Chat Interface initialization failed, continuing without chat")
             
             # Initialize other components
             await self.learning_engine.initialize()
@@ -1967,4 +1975,35 @@ The proposal has been rejected and will not be implemented."""
             return None
         except Exception as e:
             logger.error(f"Error getting proposal by ID: {str(e)}")
-            return None 
+            return None
+    
+    async def chat_with_intelligent_assistant(self, message: str) -> str:
+        """
+        Chat with the intelligent assistant that can route between local and cloud LLMs.
+        
+        Args:
+            message: User's message
+            
+        Returns:
+            Assistant's response
+        """
+        try:
+            return await self.intelligent_chat.process_message(message)
+        except Exception as e:
+            logger.error(f"Error in intelligent chat: {str(e)}")
+            return f"I apologize, but I encountered an error: {str(e)}"
+    
+    def get_chat_history(self) -> List[Dict[str, Any]]:
+        """Get chat history from the intelligent assistant."""
+        try:
+            return self.intelligent_chat.get_chat_history()
+        except Exception as e:
+            logger.error(f"Error getting chat history: {str(e)}")
+            return []
+    
+    def clear_chat_history(self) -> None:
+        """Clear chat history."""
+        try:
+            self.intelligent_chat.clear_history()
+        except Exception as e:
+            logger.error(f"Error clearing chat history: {str(e)}") 
